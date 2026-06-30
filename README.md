@@ -28,14 +28,14 @@ uv run uvicorn main:app --reload
 ## Data
 
 ### Train & Rag Document
-1. 만개의 레시피
+1. 만개의 레시피   
 https://www.10000recipe.com/?srsltid=AfmBOooLjpoIMbvss7HL5iXygBMquTRGr-oGYMjopTBaFqNWWb5L2QuT
 - 1차: 각 요리 레시피 스크랩
 - 2차: 요리 레시피 문서 정형화(요리이름,종류,재료)
 
 ### DB
 - 요리 레시피 성분 계산을 위한 데이터
-1. 식품의약품안전처(식품영양성분 데이터베이스)
+1. 식품의약품안전처(식품영양성분 데이터베이스)   
 https://various.foodsafetykorea.go.kr/nutrient/general/down/list.do
 - 재료 성분 DB다운
 

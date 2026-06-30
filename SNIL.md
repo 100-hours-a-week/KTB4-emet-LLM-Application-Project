@@ -1,4 +1,6 @@
-# Library & Module
+# Something New I Learn
+
+## Library & Module
 
 - from contextlib import asynccontextmanager
     - 비동기 컨텍스트 매니저 생성 데코레이터 모듈
@@ -23,7 +25,7 @@
     * vectorstore.add_documents(docs): 기존 VDB에 문서 추가
     * vectorstore.as_retriever(search_kwargs={"k": retriever_k}): 체인에 사용할 Retriever 객체로 변환
         - search_kwargs={"k": retriever_k}: retriever_k만큼의 유사 문서 검색
-# Function
+## Function
 - os.getenv(field_name, default): 환경변수의 값을 리턴하는 함수
     - field_name :환경변수 이름
     - default: 해당 환경변수가 없을 경우 기본적으로 사용할 값
