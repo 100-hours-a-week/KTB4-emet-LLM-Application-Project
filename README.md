@@ -1,5 +1,13 @@
 # Tilte: Food Recipe Chat-bot
 
+## 실행방법
+
+~~~
+ollama run gemma4:e2b-mlx
+uv run baseline.py
+uv run uvicorn main:app --reload
+~~~
+
 ## Description
 
 - 제목

@@ -12,9 +12,12 @@ import os
 
 load_dotenv()
 
+
+from glob import glob
+
 # 인덱싱
 print("문서 로딩 및 인덱싱 시작...")
-from glob import glob
+
 doc_path = "../Docs/FOOD/RICE"
 pdf_paths = sorted(glob(doc_path+"/*.pdf"))
 pdf_docs = []

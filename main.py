@@ -18,10 +18,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 doc_path = "../Docs/FOOD/RICE"
 
-chunk_size = 500,
-chunk_overlap = 50,
-retriever_k = 3
-
 ## 환경 변수 읽기
 load_dotenv()
 
@@ -48,14 +44,18 @@ def build_rag_chain():
     pdf_paths = sorted(glob(doc_path+"/*.pdf"))
     pdf_docs = []
     for p in pdf_paths:
-        pdf_docs.extend(PyPDFLoader(p, encoding="utf-8").load())
-
+        loader = PyPDFLoader(p)
+        pages = loader.load()          # 해당 PDF의 모든 페이지를 한 번에 리스트로 반환
+        for doc in pages:
+            page_num = doc.metadata["page"] + 1
+            preview = doc.page_content[:40].replace("\n", " ")
+            print(f"[페이지 {page_num}] {preview}...")
+        pdf_docs.extend(pages)          # 리스트 통째로 추가
     docs = pdf_docs
     print(f"로딩된 Document 수: {len(docs)}")
-
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size = chunk_size,
-        chunk_overlap = chunk_overlap,
+        chunk_size = 500,
+        chunk_overlap = 50,
     )
     split_docs = splitter.split_documents(docs)
     print(f"분할된 chunk 수: {len(split_docs)}")
@@ -68,7 +68,7 @@ def build_rag_chain():
     vectorstore = Chroma.from_documents(split_docs, embeddings)
 
     # RAG
-    retriever = vectorstore.as_retriever(search_kwargs={"k": retriever_k})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
     prompt = ChatPromptTemplate.from_messages([
         ("system",
