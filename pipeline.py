@@ -1,58 +1,39 @@
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+# RAG's pipeline
+import os
+from glob import glob
+from dotenv import load_dotenv
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_ollama import ChatOllama
-from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from langchain_google_genai import ChatGoogleGenerativeAI
-from dotenv import load_dotenv
-import os
+
+
+
+import loader
+import splitter
+from vectorstore import VectorStore
 
 load_dotenv()
 
+DB_PATH = "./database/"
+collection_name = "test_db"
+retriever_k = 5
 
-from glob import glob
+document = loader.fileloader_distributor()
+splitted_docs = splitter.Token_splitter(document)
 
-# 인덱싱
-print("문서 로딩 및 인덱싱 시작...")
-
-doc_path = "../Docs/FOOD/RICE"
-pdf_paths = sorted(glob(doc_path+"/*.pdf"))
-pdf_docs = []
-for p in pdf_paths:
-    loader = PyPDFLoader(p)
-    pages = loader.load()          # 해당 PDF의 모든 페이지를 한 번에 리스트로 반환
-    for doc in pages:
-        page_num = doc.metadata["page"] + 1
-        preview = doc.page_content[:40].replace("\n", " ")
-        print(f"[페이지 {page_num}] {preview}...")
-    pdf_docs.extend(pages)          # 리스트 통째로 추가
-docs = pdf_docs
-print(f"로딩된 Document 수: {len(docs)}")
-
-splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=50,
+embedding = GoogleGenerativeAIEmbeddings(
+        model = "models/gemini-embedding-001",
+        google_api_key=os.environ["GOOGLE_API_KEY"]
 )
-split_docs = splitter.split_documents(docs)
-print(f"분할된 chunk 수: {len(split_docs)}")
 
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
-    google_api_key=os.getenv("GOOGLE_API_KEY"),
-)
-vectorstore = Chroma.from_documents(split_docs, embeddings)
+vdb = VectorStore(splitted_docs, embedding, collection_name,  DB_PATH)
 
-print("인덱싱 완료")
+retriever = vdb.retriever(k=retriever_k)
 
-# RAG
-print("RAG 파이프라인 시작...")
-# Retriever를 통해 관련 문서를 검색하고, LLM을 통해 답변을 생성하는 RAG 파이프라인 구성
-retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
 
-# Augmented Generation을 위한 Prompt 구성
+# 수정 필요
 prompt = ChatPromptTemplate.from_messages([
     ("system",
      "다음 문서를 근거로 사용자 질문에 답하세요. "
@@ -61,22 +42,8 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "{question}"),
 ])
 
-def build_llm():
-    provider = os.getenv("LLM_PROVIDER", "google").lower()
-    print(f"LLM Provider: {provider}")
-    if provider == "ollama":
-        from langchain_ollama import ChatOllama
-        return ChatOllama(
-            model=os.getenv("OLLAMA_MODEL", "gemma4:e2b-mlx"),
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        )
-    return ChatGoogleGenerativeAI(
-        model=os.getenv("GOOGLE_MODEL", "gemini-2.5-flash"),
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
-    )
 
-
-llm = build_llm()
+llm = loader.llm_loader()
 
 def format_docs(ds):
     return "\n\n".join(d.page_content for d in ds)
@@ -92,7 +59,7 @@ print(rag.invoke("볶음밥 재료는 무엇인가요?"))
 
 print("RAG 파이프라인 완료")
 
-# 평가
+## -------- 수정 필요 -------- ##
 from langsmith.evaluation import evaluate
 from langsmith import Client
 
