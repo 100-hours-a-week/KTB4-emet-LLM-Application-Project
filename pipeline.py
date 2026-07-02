@@ -7,7 +7,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-
+from langsmith import traceable
 
 
 import loader
@@ -17,7 +17,7 @@ from vectorstore import VectorStore
 load_dotenv()
 
 DB_PATH = "./database/"
-collection_name = "test_db"
+collection_name = "test_db1"
 retriever_k = 5
 
 document = loader.fileloader_distributor()
@@ -33,7 +33,7 @@ vdb = VectorStore(splitted_docs, embedding, collection_name,  DB_PATH)
 retriever = vdb.retriever(k=retriever_k)
 
 
-# 수정 필요
+# 추후 수정 필요 
 prompt = ChatPromptTemplate.from_messages([
     ("system",
      "다음 문서를 근거로 사용자 질문에 답하세요. "
@@ -70,24 +70,28 @@ client = Client()
 
 EVAL_QUESTIONS = [
     {
-        "question": "볶음밥 종류를 말해주세요.?",
+        "question": "알고있는 볶음밥 레시피를 알려주세요.?",
         "answer":   "김치볶음밥, 고추장볶음밥, 중국집 볶음밥, 한라산 볶음밥입니다.",
     },
     {
-        "question": "볶음밥에 자주 들어가는 재료는 무엇인가요?",
-        "answer":   "밥, 계란, 김, 참기름이 있습니다.",
+        "question": "볶음밥에 반드시 들어가는 재료는 무엇이 있나요?",
+        "answer":   "밥, 식용유 입니다.",
     },
     {
-        "question": "볶음밥은 불이 필요한가요?",
-        "answer":   "볶음밥은 불이 필요합니다.",
+        "question": "볶음밥은 계란이 반드시 필요한가요?",
+        "answer":   "볶음밥은 계란이 있으면 좋지만, 반드시 필요하지는 않습니다.",
     },
     {
-                "question": "볶음밥은 필수 재료로 물이 필요한가요?",
-        "answer":   "볶음밥은 물이 필수로 필요없습니다.",
+        "question": "흰밥, 계란, 대파, 간장 ,소금으로는 무엇을 만들 수 있나요?",
+        "answer":   "계란 볶음밥을 만들 수 있습니다.",
     },
     {
         "question": "볶음밥 조리 시간은 보통 몇분 인가요?",
         "answer":   "볶음밥 조리 시가은 평균 15분 입니다.",
+    },
+    {
+        "question": "계란, 당근으로 무엇을 만들 수 있나요?",
+        "answer":   "만들 수 있는 요리가 없습니다. 밥과 조미료를 추가하시면 계란 야채 볶음밥을 만들 수 있습니다.",
     },
 ]
 print(f"검증 질문 수: {len(EVAL_QUESTIONS)}")
@@ -130,7 +134,6 @@ def contains_expected_keyword(run, example):
     pred = run.outputs.get("answer", "")
     expected = example.outputs.get("answer", "")
 
-    # === 기대 답변에서 명사로 보이는 단어 한두 개를 키워드로 사용 ===
     keywords = [w for w in expected.split() if len(w) >= 2][:2]
     hit = all(k in pred for k in keywords)
 
@@ -160,7 +163,6 @@ def llm_judge(run, example):
         "reference": example.outputs["answer"],
         "prediction": run.outputs["answer"],
     })
-    # === 첫 줄의 숫자만 점수로 사용 ===
     first_line = reply.strip().splitlines()[0].strip()
     try:
         score = float(first_line)

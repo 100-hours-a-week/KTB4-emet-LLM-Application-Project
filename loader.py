@@ -4,7 +4,7 @@ import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-document_path = "../../Docs/FOOD/RICE" 
+document_path = "../Docs/FOOD/RICE" 
 
 
 def text_loader():
@@ -49,6 +49,7 @@ def fileloader_distributor():
     return document
 
 
+# 수정 필요
 def model_loader():
     return 0
 

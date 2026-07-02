@@ -7,68 +7,38 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from langchain_google_genai import ChatGoogleGenerativeAI
+
+import loader
+import splitter
+from vectorstore import VectorStore
+
+load_dotenv()
 
 doc_path = "../Docs/FOOD/RICE"
 
-## 환경 변수 읽기
-load_dotenv()
 
-
-def build_llm():
-    provider = os.getenv("LLM_PROVIDER", "goolge").lower()
-    print(f"LLM Provider: {provider}")
-
-    if provider == "ollama":
-        from langchain_ollama import ChatOllama
-        return ChatOllama(
-            model=os.getenv("OLLAMA_MODEL", "gemma4:e2b-mlx"),
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        )
-    return ChatGoogleGenerativeAI(
-        model=os.getenv("GOOGLE_MODEL", "gemini-2.5-flash"),
-        google_api_key=os.getenv("GOOGLE_API_KEY"),
-    )
+DB_PATH = "./database/"
+collection_name = "test_db"
+retriever_k = 5
     
 
 
 def build_rag_chain():
-    ## 개인화 필요
-    pdf_paths = sorted(glob(doc_path+"/*.pdf"))
-    pdf_docs = []
-    for p in pdf_paths:
-        loader = PyPDFLoader(p)
-        pages = loader.load()          # 해당 PDF의 모든 페이지를 한 번에 리스트로 반환
-        for doc in pages:
-            page_num = doc.metadata["page"] + 1
-            preview = doc.page_content[:40].replace("\n", " ")
-            print(f"[페이지 {page_num}] {preview}...")
-        pdf_docs.extend(pages)          # 리스트 통째로 추가
-    docs = pdf_docs
-    print(f"로딩된 Document 수: {len(docs)}")
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size = 500,
-        chunk_overlap = 50,
-    )
-    split_docs = splitter.split_documents(docs)
-    print(f"분할된 chunk 수: {len(split_docs)}")
+    document = loader.fileloader_distributor()
+    splitted_docs = splitter.Token_splitter(document)
 
-    embeddings = GoogleGenerativeAIEmbeddings(
+    embedding = GoogleGenerativeAIEmbeddings(
         model="models/gemini-embedding-001",
         google_api_key=os.getenv("GOOGLE_API_KEY"),
     )
 
-    vectorstore = Chroma.from_documents(split_docs, embeddings)
+    vdb = VectorStore(splitted_docs, embedding, collection_name,  DB_PATH)
 
-    # RAG
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+    retriever = vdb.retriever(k=retriever_k)
 
     prompt = ChatPromptTemplate.from_messages([
         ("system",
@@ -78,7 +48,7 @@ def build_rag_chain():
         ("human", "{question}"),
     ])
 
-    llm = build_llm()
+    llm = loader.llm_loader()
 
     def format_docs(ds):
         return "\n\n".join(d.page_content for d in ds)
