@@ -24,6 +24,8 @@ class VectorStore:
     def retriever(self, k):
         return self.VDB.as_retriever(search_kwargs={"k": k})
     
+    def is_empty():
+        return True
 
 
     ## VDB 로컬 저장(인메모리->로컬파일) 
