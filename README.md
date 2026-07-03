@@ -14,7 +14,7 @@
 ## 실행방법
 ~~~
 ollama run gemma4:e2b-mlx
-uv run pipeline.py
+uv run graph.py
 uv run uvicorn main:app --reload
 ~~~
 
