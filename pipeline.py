@@ -28,6 +28,7 @@ embedding = GoogleGenerativeAIEmbeddings(
         google_api_key=os.environ["GOOGLE_API_KEY"]
 )
 
+
 vdb = VectorStore(splitted_docs, embedding, collection_name,  DB_PATH)
 
 retriever = vdb.retriever(k=retriever_k)

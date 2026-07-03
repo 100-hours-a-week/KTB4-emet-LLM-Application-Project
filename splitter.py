@@ -23,8 +23,6 @@ def char_splitter(document):
     print(f"분할된 chunk 수: {len(split_docs)}")
     return split_docs
 
-
-
 ## 한국어 적합
 def Token_splitter(document):
     splitter = TokenTextSplitter(
