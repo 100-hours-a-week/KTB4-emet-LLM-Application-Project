@@ -6,8 +6,8 @@ dist/
 wheels/
 *.egg-info
 database
-
-
+DeepDive_example
+chromadb/
 # Virtual environments
 .venv
 .env

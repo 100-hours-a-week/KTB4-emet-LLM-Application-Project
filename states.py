@@ -21,6 +21,15 @@ class OverrollState(MessagesState):
     documents:str
     query: str
     answer: str
+    type:str
+    #message: list
+    ## "JUDGE"
+    reference: str
+    prediction: str
+    score:float
+
+    ## check loop
+    loop:int
 
 def add_count(a: int, b: int) -> int:
     return a+b
