@@ -8,6 +8,10 @@ wheels/
 database
 DeepDive_example
 chromadb/
+DeepDive_example.py
+model/recipe_pdfs
+model/recipe_ids.json
+
 # Virtual environments
 .venv
 .env

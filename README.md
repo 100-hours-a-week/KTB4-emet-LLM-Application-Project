@@ -15,7 +15,7 @@
 ~~~
 ollama run gemma4:e2b-mlx
 
-# 1.befoer main query, evaluate RAG
+# 1.before main query, evaluate RAG
 uv run evaluate.py
 
 # 2-1.main query(single query)
@@ -27,14 +27,13 @@ uv run uvicorn main:app --reload
 
 
 ## Data(draft)
-### Train & Rag Document
+### Rag Document
 1. 만개의 레시피   
 https://www.10000recipe.com/?srsltid=AfmBOooLjpoIMbvss7HL5iXygBMquTRGr-oGYMjopTBaFqNWWb5L2QuT
 - 1차: 각 요리 레시피 스크랩
 - 2차: 요리 레시피 문서 정형화(요리이름,종류,재료)
 
 ### DB
-
 1. 식품의약품안전처(식품영양성분 데이터베이스)   
 https://various.foodsafetykorea.go.kr/nutrient/general/down/list.do
   - 요리 레시피 성분 및 칼로리 계산을 위한 데이터
@@ -87,7 +86,8 @@ https://various.foodsafetykorea.go.kr/nutrient/general/down/list.do
 - 내용
     직접 요리재료를 입력하거나, 기록한 현재 보유 식재료를 기반으로 요리레시피를 추천하는 LLM 어플리케이션.
 - 기능
-    좋아하거나 소비기한때문에 반드시 넣고(처리하고) 싶은 재료, 제한성분(당,염분), 다이어트(칼로리제한), 근성장(단백질)을 고려해서 레시피 생성하기
-    재료가 부족하다면 추가가 필요한 재료와 그에따른 레시피 추천하기
-    추천한 레시피를 사용했단면 개인 히스토리로 저장해서, 다음에 동일한 재료 있을시 우선순위 높여서 추천하기
-    나만의 요리 레시피 입력해놓고, 레시피 요청할때 만들 수 있으면 추천하기(RAG)
+    - 좋아하거나 소비기한때문에 반드시 넣고(처리하고) 싶은 재료, 제한성분(당,염분), 다이어트(칼로리제한), 근성장(단백질)을 고려해서 레시피 생성하기
+      - 주어진 재료로 레시피 만들기(만들수없으면 만들수 없다고 답변)
+    - 재료가 부족하다면 추가가 필요한 재료와 그에따른 레시피 추천하기
+    - 추천한 레시피를 사용했단면 개인 히스토리로 저장해서, 다음에 동일한 재료 있을시 우선순위 높여서 추천하기
+    - 나만의 요리 레시피 입력해놓고, 레시피 요청할때 만들 수 있으면 추천하기(RAG)

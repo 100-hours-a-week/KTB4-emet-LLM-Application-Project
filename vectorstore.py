@@ -11,6 +11,9 @@ class VectorStore:
     def __init__(self, split_docs, embedding, collection_name,  persist_directory):
         if self.is_exsists(persist_directory):
             self.load_local_vdb(embedding, collection_name, persist_directory)
+            if self.has_new_doc(len(split_docs),persist_directory):
+                print("VDB doc is updated.")
+                self.VDB.add_documents(split_docs)
             
         else :
             self.create_vdb(split_docs, embedding, collection_name,  persist_directory)
@@ -23,11 +26,15 @@ class VectorStore:
             
         print("VDB directory is not exists.")
         return False
+    
+    def has_new_doc(self, new_length, persist_directory):
+        if new_length > self.VDB._collection.count():
+            return True
+        return False
 
-
-    def load_local_vdb(self,embedding, collection_name,DB_PATH):
+    def load_local_vdb(self,embedding, collection_name,persist_directory):
         self.VDB = Chroma(
-            persist_directory=DB_PATH,
+            persist_directory=persist_directory,
             embedding_function=embedding,
             collection_name=collection_name
         )
@@ -52,3 +59,7 @@ class VectorStore:
     
     def retriever(self, k):
         return self.VDB.as_retriever(k=k)
+    
+    def add_new_docs(self, new_docs):
+        ## 중복 문서(청크)은?
+        self.VDB.add_documents(new_docs)

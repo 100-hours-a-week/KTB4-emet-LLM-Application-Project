@@ -60,20 +60,17 @@ def get_or_create_dataset(client: Client):
  
  
 async def target(inputs: dict) -> dict:
-    """LangSmith가 데이터셋의 각 example마다 호출하는 함수.
-    프로덕션 그래프를 그대로 실행해서 answer만 뽑아 반환한다."""
     graph = build_generate()
     result = await graph.ainvoke({
         "type":"JUDGE",
         "query": inputs["question"],
         "messages": [],
     })
+    
     return {"answer": result["answer"]}
  
  
 def correctness(outputs: dict, reference_outputs: dict) -> dict:
-    """row-level 평가자: 정답 키워드가 답변에 포함되는지 확인.
-    더 정교한 채점이 필요하면 LLM-as-judge로 교체."""
     predicted = outputs.get("answer", "")
     expected = reference_outputs.get("answer", "")
     return {
@@ -81,9 +78,8 @@ def correctness(outputs: dict, reference_outputs: dict) -> dict:
         "score": expected.strip() in predicted,
     }
  
- 
+ ## 평가자
 def accuracy_summary(outputs: list, reference_outputs: list) -> dict:
-    """summary-level 평가자: 전체 데이터셋 기준 정답률."""
     scores = [
         reference_outputs[i]["answer"].strip() in outputs[i]["answer"]
         for i in range(len(outputs))
@@ -104,7 +100,7 @@ async def run_eval():
         evaluators=[correctness],
         summary_evaluators=[accuracy_summary],
         experiment_prefix="recipe-rag-batch",
-        description="레시피 RAG 파이프라인 배치 회귀 평가",
+        description="레시피 RAG 파이프라인 평가",
         metadata={"collection": os.environ.get("collection_name", "test_db1")},
     )
  

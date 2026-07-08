@@ -21,7 +21,7 @@ load_dotenv()
 
 THRESHOLD = 0.01
 MAXLOOP = 3
-collection_name = "test_db1"
+collection_name = "test_db3"
 retriever_k = 5
 
 embedding = GoogleGenerativeAIEmbeddings(
@@ -58,7 +58,10 @@ EVAL_QUESTIONS = [
 
 def init_vdb(embedding,collection_name,k):
     document = loader.fileloader_distributor()
-    splitted_docs = splitter.Token_splitter(document)
+    ## splitted_docs = splitter.Token_splitter(document)
+    ## pdf문서 1개를 문서 취급
+    splitted_docs = document
+    print(os.environ["DB_PATH"])
     vdb = VectorStore(splitted_docs, embedding, collection_name,  os.environ["DB_PATH"])
     retriever = vdb.retriever(k=k)
 
@@ -92,6 +95,21 @@ async def node_prompt(state:OverrollState):
         ])
         query = prompt_template.format(context=state["documents"], query=state["query"])
         print("This is GENERATE Prompt.")
+
+    elif type == "RECIPE":
+        prompt_template = ChatPromptTemplate.from_messages([
+        ("system",
+         "당신은 각종 요리 레시피를 알고 있는 요리전문가 입니다. "
+         "문서들의 레시피를 확인하고, 주어진 재료들로만으로 요리 가능한 레시피를 우선적으로 답해줘. "
+         "레시피에서 추가재료가 필요하다면 추가재료가 적은순으로 레시피를 답해줘.  "
+         "모든 문서들의 레시피가 불가능하다면 재료들을 근거로 새로운 레시피를 만들되 맛과 식감을 생각하고 답하세요."
+         "사용자가 제시한 재료들로 요리가 불가능하다면 '현재 재료는 요리가 불가능합니다. 추가 재료가 필요합니다'라고 답하세요. "
+         "문서들의 레시피 재료를 확인하고, 추가 재료가 적은 순으로 필요한 추가재료와 레시피를 답하세요. "
+         "요리와 관련된 질문이 아니라면 '죄송합니다. 저는 요리관련 정보만 제공합니다'를 답하세요\n\n"),
+        ("human", "{query}"),
+        ])
+        query = prompt_template.format(context=state["documents"], query=state["query"])
+        print("This is Recipe Prompt.")
 
     elif type == "JUDGE" :
         prompt_template = ChatPromptTemplate.from_messages([
@@ -183,7 +201,6 @@ def build_generate():
     
     graph_main = StateGraph(OverrollState)
     
-
     graph_main.add_node("node_retreive", node_retreive)
     graph_main.add_node("node_prompt", node_prompt)
     graph_main.add_node("node_llm", node_llm)
@@ -193,8 +210,7 @@ def build_generate():
     graph_main.add_edge("node_retreive", "node_prompt")
     graph_main.add_edge("node_prompt", "node_llm")
     graph_main.add_edge("node_llm", END)
-    graph_main.add_conditional_edges("node_evaluate",
-        route_after_eval,
+    graph_main.add_conditional_edges("node_evaluate", route_after_eval,
         {"END": END, "node_retreive": "node_retreive"}
         )
     return graph_main.compile()
@@ -203,9 +219,10 @@ async def run_graph():
     graph = build_generate()
 
     ## 스트리밍으로 변경예정
+    
     result = await graph.ainvoke({
-        "type":"GENERATE",
-        "query": "쌀밥,계란,대파,소금으로 만들 수 있는 요리 레시피 알려줘.",
+        "type":"RECIPE",
+        "query": "",
         "messages": [],
         "loop" : 0
         })
@@ -214,8 +231,8 @@ async def run_graph():
     #print(result["messages"])
 
 
-if __name__ == "__main__":
+##if __name__ == "__main__":
 
-    asyncio.run(run_graph()) 
+  ##  asyncio.run(run_graph()) 
 
     
