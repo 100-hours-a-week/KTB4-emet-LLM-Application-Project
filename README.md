@@ -45,7 +45,7 @@ uv run uvicorn main:app --reload
 ~~~
 
 
-## Data(draft)
+## Data Source(draft)
 ### Train & Rag Document
 1. 만개의 레시피   
 - URL: https://www.10000recipe.com/?srsltid=AfmBOooLjpoIMbvss7HL5iXygBMquTRGr-oGYMjopTBaFqNWWb5L2QuT
