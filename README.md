@@ -36,11 +36,9 @@ https://various.foodsafetykorea.go.kr/nutrient/general/down/list.do
 
 
 ## Flowchart(draft)
-<img width="2720" height="4480" alt="type1_recipe_recommendation_flow_v3" src="https://github.com/user-attachments/assets/7dedfc4a-2906-421b-829a-3a4d8b74d296" />
-<img width="2720" height="1800" alt="async_recommend_reply_feedback_flow" src="https://github.com/user-attachments/assets/ce7d245d-e3a2-4b98-9408-64f48925cf78" />
-<img width="2720" height="3680" alt="type2_recipe_response_flow_v3" src="https://github.com/user-attachments/assets/4b2b2a57-3620-40ab-88c3-d666375e76fb" />
-
-
+<img width="680" height="1120" alt="type1_recipe_recommendation_flow_v3" src="https://github.com/user-attachments/assets/7dedfc4a-2906-421b-829a-3a4d8b74d296" />
+<img width="680" height="450" alt="async_recommend_reply_feedback_flow" src="https://github.com/user-attachments/assets/ce7d245d-e3a2-4b98-9408-64f48925cf78" />
+<img width="680" height="920" alt="type2_recipe_response_flow_v3" src="https://github.com/user-attachments/assets/4b2b2a57-3620-40ab-88c3-d666375e76fb" />
 
 ## Description(draft)
 
