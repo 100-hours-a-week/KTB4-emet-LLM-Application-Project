@@ -1,10 +1,9 @@
 # Tilte: Food Recipe Generate Chat-bot
 
 ## version
-- 0.0.1: alex's rag chain 
-- 0.0.2: refactoring              <--- now processing
-- 0.0.3: ranggraph migrations 
-- 0.0.4:
+- 0.x.1: alex's rag chain 
+- 0.x.2: refactoring              
+- 0.x.3: ranggraph   <--- now processing
 
 ### Development Phase
 - 0.0.x: using model free gen ai(geminai, ollama, etc)  <--- now processing
