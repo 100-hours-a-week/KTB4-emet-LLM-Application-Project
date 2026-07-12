@@ -35,42 +35,11 @@ https://various.foodsafetykorea.go.kr/nutrient/general/down/list.do
 
 
 
-## User Using Flow(draft)
-~~~
+## Flowchart(draft)
+<img width="2720" height="2640" alt="query_analysis_and_regen_loop_v10" src="https://github.com/user-attachments/assets/f8f23cac-cd5d-4a99-a6a7-ee30e05d6f4d" />
+<img width="2720" height="3200" alt="recipe_review_full_flow_vertical" src="https://github.com/user-attachments/assets/4e67ebf3-2831-4840-ac3b-f59692332603" />
 
-       (필수쿼리)직접 레시피 재료 입력 / 현재 보유 식재료 레시피 요청(세션유지)
-                    |
-                    ↓
-       (선택쿼리)희망 필수재료, 요리 종류, 칼로리, 성분제한 요청(세션컨텍스트 유지)
-                    |
-                 모델 입력
-                    ↓                                                                               
-           < 레시피 생성/탐색  가능한가? >       --(No)-→    재료 부족으로 인한 레시피 추천 불가능한 이유 응답(부족한 필수 재료들, etc) 
-                    |                                                   |
-                    |                                                   ↓
-                    |                                       부족한 재료로 추가시 생성 가능한 요리 레시피 응답
-                    |                                                   |
-                    |                                                   ↓
-                  (Yes)                                    < 사용자가 부족한 필수 재료들 입수 가능여부 응답 >   --(No)-→  -↓ 
-                    |                                                   |                                       |
-                    |                                                 (Yes)                                     |
-                    |                                                   |                                       |
-                    ↓                                                   ↓                                       |
-          적합한 요리 레시피 리스트 응답          ←---------            레시피가 재생성 및 재탐색                            |
-                    |                                                   ↑                                      |
-                    |                                       제공한 레시피 리스트 제외 처리(Loop Counting)              |
-                    |                                                   ↑                                       |
-                    |                                                 (Yes)                                     ↓
-                    ↓                                                   |                                       
-        < 사용자가 제공한 레시피 사용할지여부? >          --(No)-→         < Loop N번초과 안했는가? >      --(No)-→      - 모델 출력 → 
-                    |                                                                                           |
-                    |                                                                                           ↓
-                  (Yes)                                                                              endpoint[레시피불가능]: 배달 추천
-                    |
-                 모델 출력
-                    ↓   
-     endpoint: 사용한 레시피에대한 새로운 Document 작성 및 저장(개인 히스토리)
-~~~
+
 
 
 ## Description(draft)
