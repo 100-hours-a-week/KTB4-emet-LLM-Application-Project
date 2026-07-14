@@ -6,10 +6,19 @@ dist/
 wheels/
 *.egg-info
 database
+DeepDive_example
+chromadb/
+DeepDive_example.py
 
+
+recipes/recipe_pdfs
+recipes/recipe_ids.json
+recipes/Original_pdf/
+recipes/Structuring_md/
 
 # Virtual environments
 .venv
 .env
 0.0.1
 0.0.2
+
