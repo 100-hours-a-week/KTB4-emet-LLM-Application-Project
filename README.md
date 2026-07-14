@@ -38,6 +38,8 @@
 ---
 
 ## 실행방법
+
+~~~
 ollama run gemma4:e2b-mlx
 
 # 1.before main query, evaluate RAG
@@ -48,7 +50,7 @@ uv run graph.py
 
 # 2-2.main query by fastapi(not build)
 uv run uvicorn main:app --reload
-
+~~~
 
 ## Data Source(draft)
 ### Train & Rag Document
