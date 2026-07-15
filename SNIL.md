@@ -46,8 +46,42 @@ content_blocks: list[types.ContentBlock] | None = None, **kwargs: Any = {})
     - 모델 -> 사용자로 전송하는 메시지
 
 
+- add_conditional_edges(
+    self,
+    source: str,
+    path: Callable[..., Hashable | Sequence[Hashable]] | Callable[..., Awaitable[Hashable | Sequence[Hashable]]] | Runnable[Any, Hashable | Sequence[Hashable]],
+    path_map: dict[Hashable, str] | list[str] | None = None
+)
+
+- with_structured_output(QueryType, method="json_schema")
+    - LLM 모델 답변 형태 고정:
+    - include_raw=True: 추가하면 날것의 대답을 볼 수 있음
+
 
 ## Function
 - os.getenv(field_name, default): 환경변수의 값을 리턴하는 함수
     - field_name :환경변수 이름
     - default: 해당 환경변수가 없을 경우 기본적으로 사용할 값
+
+
+## Pattern
+
+- 라우터 
+    - 기존에 배운 컨디셔널 함수는 분기가 2개인 반면 해당 방법은 2개 이상 가능하다.
+    - 구성
+        - 상태정의 클래스: basemodel,pydantic 상속해서 분기 기준 데이터 정의
+        - 라우터 함수: 기존 컨디서녈함수 입력은 상태메시지, 출력은 다음 노드이름 또는 노드리스트
+        - 엣지 연결: add_conditional_edges() 동일하게 사용하되 mapping을 사용함
+            예시) 
+            ~~~
+            workflow.add_conditional_edges(
+                source="start_node", # 시작 노드 이름
+                path=route_category,   # 라우터 함수 지정
+                path_map={
+                    "node_tech": "node_tech",
+                    "node_sales": "node_sales",
+                    "node_support": "node_support",
+                    "node_default": "node_default"
+                }
+            )
+            ~~~

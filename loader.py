@@ -17,14 +17,19 @@ def html_loader():
     return -1
 
 
-def pdf_loader(pdf_path_list):
+def pdf_loader(pdf_path_list, limit=-1):
     pdf_docs = []
     total_pages = 0
+    
     for p in pdf_path_list:
         loader = PyPDFLoader(p)
         pages = loader.load()
-                  
+        limit_flag = False
+        if limit > -1:
+            limit = True
         for doc in pages:
+            if limit_flag and len(pdf_docs) >= limit:
+                break
             page_num = doc.metadata["page"] + 1
             total_pages += page_num
             preview = doc.page_content[:40].replace("\n", " ")
@@ -36,7 +41,7 @@ def pdf_loader(pdf_path_list):
     return pdf_docs
 
 
-def fileloader_distributor():
+def fileloader_distributor(limit=-1):
     # 1. 각 파일 형삭 로더로 문서 가져오기
     pdf_path_list = sorted(glob(document_path+"/*.pdf"))
     pdf_docs = pdf_loader(pdf_path_list)

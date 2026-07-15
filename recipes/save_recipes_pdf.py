@@ -16,7 +16,7 @@ from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 BASE = "https://www.10000recipe.com"
 INPUT_FILE = "recipe_ids.json"
-OUTPUT_DIR = Path("./recipe_pdfs")
+OUTPUT_DIR = Path("./original_recipes")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 DELAY_SEC = 5.0  # 레시피 간 딜레이 (서버 부하 최소화 목적, 절대 줄이지 마세요)

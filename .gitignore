@@ -10,6 +10,8 @@ DeepDive_example
 chromadb/
 DeepDive_example.py
 
+claude
+claude/
 
 recipes/recipe_pdfs
 recipes/recipe_ids.json
