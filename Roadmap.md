@@ -1,1 +1,77 @@
+# 🗺️ Roadmap
+
+한국 레시피 데이터를 기반으로 한 LLM 레시피 추천 챗봇 프로젝트의 개발 로드맵입니다.
+사용자가 보유한 재료(필수) 및 선호 조건(원하는 재료, 요리 종류, 칼로리, 제한사항 등 선택)을 입력하면 RAG 파이프라인을 통해 레시피를 추천합니다.
+
+**Tech Stack**: FastAPI · LangGraph · ChromaDB · Google Gemini (`langchain_google_genai`) · LangSmith · Playwright · `uv`
+
+---
+
+| Phase | 항목 | 설명 | 상태 |
+|---|---|---|---|
+| 0 | 스크래퍼 구현 | 10000recipe.com, Playwright 기반, `print.html` 엔드포인트 활용, rate-limit 적용 | ✅ 완료 |
+| 0 | 전처리 프롬프트 설계 | 레시피 → 구조화 JSON 변환 (title / servings / ingredients / steps / cook_time) | ✅ 완료 |
+| 0 | 전처리 규칙 확정 | 규칙 0~9 확정, 재료·조리단계 누락 문서 스킵 처리 | ✅ 완료 |
+| 0 | 벡터 스토어 구축 | ChromaDB + Gemini 임베딩, `seq` 기반 고정 ID로 중복 방지 | ✅ 완료 |
+| 1 | State 설계 | LangGraph `OverrollState` (thread_id / documents / query / answer) | ✅ 완료 |
+| 1 | 핵심 노드 구현 | `node_retrieve` → `node_prompt` → `node_llm` | ✅ 완료 |
+| 1 | 그래프 실행 구조 | `build_struct()` 동기 빌드 + `asyncio.run(run())` 실행 | ✅ 완료 |
+| 1 | 배치 평가 파이프라인 | LangSmith `aevaluate`, 고정 `EVAL_QUESTIONS` 데이터셋 기반 오프라인 평가 | ✅ 완료 |
+| 2 | Query 상태 분리 | `original_query` 별도 보존, `node_prompt` 덮어쓰기 방지 (재시도 루프 대비) | 🚧 진행중 |
+| 2 | 셀프 리플렉트 루프 | `node_evaluate`, `node_reflect` + conditional edge 설계 | 🚧 진행중 |
+| 2 | 하이브리드 평가 체계 | 실시간 평가 + 주기적 배치 평가 병행 도입 | 🚧 진행중 |
+| 3 | 안전성 검증 레이어 | 신규 재료 조합 생성 시 규칙 기반 후처리 체크 | 📋 예정 |
+| 3 | 개인 레시피 입력 | 사용자 등록 레시피를 추천 시 우선 반영 | 📋 예정 |
+| 3 | 개인 히스토리 가중치 | 반복 재료에 대한 검색 단계 피드백 반영 | 📋 예정 |
+| 4 | API 정식 배포 | FastAPI 엔드포인트 프로덕션 배포 | 💡 아이디어 |
+| 4 | 피드백 수집 구조 | 사용자 만족도/비선호 사유 등 수집 | 💡 아이디어 |
+| 4 | 모니터링 연동 | 프로덕션 모니터링 및 LangSmith 대시보드 상시 연동 | 💡 아이디어 |
+
+---
+
+## 📆 Weekly / Daily Log
+
+각 주차 섹션 안에 해당 주의 목표와 요일별 Todo / Done / TBD를 기록합니다.
+새 주가 시작되면 아래 템플릿을 복사해 이어서 추가하세요.
+
+### Week 1 (2026-07-13 ~ 2026-07-19)
+
+**이번 주 목표**: 예) Phase 2 리플렉트 루프 설계 착수
+
+| 날짜 | Todo | Done | TBD |
+|---|---|---|---|
+| 07/13 (월) | | | |
+| 07/14 (화) | | | |
+| 07/15 (수) | | | |
+| 07/16 (목) | | | |
+| 07/17 (금) | | | |
+| 07/18 (토) | | | |
+| 07/19 (일) | | | |
+
+**주간 요약**: (한 주 진행 상황 및 다음 주로 넘길 항목 정리)
+
+<!--
+### Week 2 (YYYY-MM-DD ~ YYYY-MM-DD)
+
+**이번 주 목표**:
+
+| 날짜 | Todo | Done | TBD |
+|---|---|---|---|
+| MM/DD (월) | | | |
+| MM/DD (화) | | | |
+| MM/DD (수) | | | |
+| MM/DD (목) | | | |
+| MM/DD (금) | | | |
+| MM/DD (토) | | | |
+| MM/DD (일) | | | |
+
+**주간 요약**:
+-->
+
+---
+
+## 📌 참고
+
+- 아키텍처 설계 및 의사결정은 이 README 및 관련 문서에 지속적으로 업데이트됩니다.
+- 상태 표시: ✅ 완료 · 🚧 진행중 · 📋 예정 · 💡 아이디어 단계
 
