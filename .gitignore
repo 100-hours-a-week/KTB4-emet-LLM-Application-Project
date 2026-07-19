@@ -12,6 +12,8 @@ DeepDive_example.py
 
 claude
 claude/
+claude/*
+details
 
 recipes/recipe_pdfs
 recipes/recipe_ids.json
