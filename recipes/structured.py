@@ -20,7 +20,7 @@ import template
 load_dotenv()
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google")
-
+print(LLM_PROVIDER)
 
 class StructuredRecipe(BaseModel):
     title: str = Field(description="요리 이름 (부제의 재료가 있으면 '재료 요리이름' 형태)")
@@ -33,7 +33,7 @@ class StructuredRecipe(BaseModel):
 
 
 async def recipe2strutured(original_recipe) -> StructuredRecipe:
-    print(LLM_PROVIDER)
+    
     print("현재노드: recipe2strutured")
     print("\n\n")
 
@@ -41,18 +41,34 @@ async def recipe2strutured(original_recipe) -> StructuredRecipe:
     recipe2strutured_model = llm_model.with_structured_output(StructuredRecipe, method="json_schema")
     query_strutured_recipe = template.recipe2strutured_prompt.format(recipe=original_recipe)
 
+    # json형태가 아닌 다른 형태로 리턴하면 최대 2번 재시도
+    max_retries = 2
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            structured_recipe = await recipe2strutured_model.ainvoke(query_strutured_recipe)
+            print(structured_recipe)
+            print("\n\n")
+
+            return structured_recipe
+        except Exception as e:
+            last_error = e
+            print(f"[재시도 {attempt + 1}/{max_retries}] {e}")
+
+
+
     # with_structured_output이 이미 StructuredRecipe로 검증해서 반환하므로
     # parse_recipes(TypeAdapter 리스트 검증)를 다시 걸면 단일 객체 vs 리스트 타입 불일치로 죽음
-    structured_recipe = await recipe2strutured_model.ainvoke(query_strutured_recipe)
+    
 
-    print(structured_recipe)
-    print("\n\n")
-
+    
     return structured_recipe
 
 
 async def recipes2json(recipes: List[StructuredRecipe]) -> None:
-    out_path = Path("/structured_recipes")
+    print("현재노드: recipes2json")
+    print("\n\n")
+    out_path = Path("./structured_recipes")
     out_path.mkdir(parents=True, exist_ok=True)
 
     for idx, recipe in enumerate(recipes, start=1):

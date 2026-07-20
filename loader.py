@@ -20,21 +20,25 @@ def html_loader():
 def pdf_loader(pdf_path_list, limit=-1):
     pdf_docs = []
     total_pages = 0
-    
+
     for p in pdf_path_list:
         loader = PyPDFLoader(p)
         pages = loader.load()
-        limit_flag = False
-        if limit > -1:
-            limit = True
+
         for doc in pages:
-            if limit_flag and len(pdf_docs) >= limit:
+            # limit 도달하면 더 이상 문서를 추가하지 않음
+            if limit > -1 and len(pdf_docs) >= limit:
                 break
+
             page_num = doc.metadata["page"] + 1
-            total_pages += page_num
+            total_pages += 1  # 페이지 번호가 아니라 페이지 개수를 셈
             preview = doc.page_content[:40].replace("\n", " ")
             print(f"[페이지 {page_num}] {preview}...")
-        pdf_docs.extend(pages)          
+
+            pdf_docs.append(doc)  # extend(pages) 대신 낱개 append로 limit 초과분 제외
+
+        if limit > -1 and len(pdf_docs) >= limit:
+            break  # 목표치 채웠으면 남은 PDF 파일은 아예 안 읽음
 
     print(f"로딩된 전체 PDF Document 파일 수: {len(pdf_docs)}")
     print(f"로딩된 전체 PDF Document 페이지 수: {total_pages}")
@@ -42,11 +46,8 @@ def pdf_loader(pdf_path_list, limit=-1):
 
 
 def fileloader_distributor(limit=-1):
-    # 1. 각 파일 형삭 로더로 문서 가져오기
     pdf_path_list = sorted(glob(document_path+"/*.pdf"))
-    pdf_docs = pdf_loader(pdf_path_list)
-
-    # 2. 전체 문서 결합하기
+    pdf_docs = pdf_loader(pdf_path_list, limit=limit)
 
     document = []
     document.extend(pdf_docs)

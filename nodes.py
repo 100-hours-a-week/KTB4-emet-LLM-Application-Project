@@ -46,6 +46,20 @@ class QueryType(BaseModel):
         description="사용자 질의의 분류 타입"
     )
 
+class Ingredient(BaseModel):
+    name: str = Field(description="재료명/조미료명 ex) 밥,계란,돼지고기,김,후추,소금,설탕,식용유")
+    amount_unit:str = Field(description="재료/조미료 측정 단위 ex) T,t,g,개,EA")
+    amount:float = Field(description="재료/조미료의 양 ex)0.5,1/3,1,4")
+    
+
+class IngredientList(BaseModel):
+    is_empty: bool =Field(description="재료가 하나도 없으면 True/재료가 하나라도 있으면 False")
+    ingredients: List[Ingredient] = Field(description="사용자가 가진 재료 목록 / 레시피의 재료 목록")
+
+
+
+
+
 def format_docs(ds):
     return "\n\n".join(d.page_content for d in ds)
 
@@ -79,6 +93,7 @@ def query_analysis(state: OverrallState):
     return {"query_type": result}
 
 ## 다음 노드 선택
+## 다음 노드 만들어지면 return 수정 필요
 def conditional_query_type(state: OverrallState):
     
     print("현재 컨디셔널함수:conditional_query_type")
@@ -94,9 +109,28 @@ def conditional_query_type(state: OverrallState):
     
     return "undeveloped"
 
+## 질의 또는 레시피문서에서 재료 추출 -> 개발중
+def extract_ingredient(state: OverrallState):
+    print("현재노드: extract_ingredient")
+
+    ## 이전 노드가 무엇인지 확인 필요!
+    ## 질의분석 노드에서 왔다면 레시피 추출이 목적
+
+    llm_model = loader.llm_loader()
+    extract_ingredient_model = llm_model.with_structured_output(QueryType, method="json_schema" )
+    query_extract_ingredient = template.extract_ingredient_prompt.format(query=state["query"])
+
+    result = extract_ingredient_model.invoke(query_extract_ingredient)
+
+    print(type(result), result)
+    
+
+    return "undeveloped"
+
+
 ## 재료 기반 레시피 검색
 async def retreiver_recipes(state: OverrallState):
-    ## query_analysis -> now -> confirm_ingrediant
+    ## query_analysis -> now -> confirm_ingredient
     recipes = []
     global retriever
     
@@ -127,14 +161,14 @@ def recipe2strutured(state: OverrallState):
     print("현재노드: recipe2strutured")
     
     llm_model = loader.llm_loader()
-    recipe2strutured_model = llm_model.with_structured_output(StructuredRecipe, method="json_schema" )
+    recipe2strutured_model = llm_model.with_structured_output(IngredientList, method="json_schema" )
     strutured_recipe = template.query_analysis_prompt.format(query=state["query"])
-
+    
     result = recipe2strutured_model.invoke(query_analysis)
 
     print(type(result), result)
 
-    return {"query_type": result}
+    return {"ingrdeient": result}
 
 
 
