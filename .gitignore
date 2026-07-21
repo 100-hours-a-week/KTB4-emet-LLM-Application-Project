@@ -1,3 +1,9 @@
+# Virtual environments
+.venv
+.env
+
+
+
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -5,24 +11,16 @@ build/
 dist/
 wheels/
 *.egg-info
-database
-DeepDive_example
-chromadb/
-DeepDive_example.py
-
 claude
 claude/
 claude/*
-details
 
-recipes/recipe_pdfs
-recipes/recipe_ids.json
-recipes/Original_pdf/
-recipes/Structuring_md/
+data
+data/
+data/*
 
-# Virtual environments
-.venv
-.env
-0.0.1
-0.0.2
+recipes/original_recipes
+recipes/structured_recipes
+
+
 
