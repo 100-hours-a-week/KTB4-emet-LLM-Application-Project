@@ -5,10 +5,10 @@ from dotenv import load_dotenv
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langgraph.graph import StateGraph, START, END
 
-import loader
-import nodes
+import ingestion.loader as loader
+import nodes.nodes as nodes
 from states import OverrallState
-from vectorstore import VectorStore
+from ingestion.vectorstore import VectorStore
 
 load_dotenv()
 
@@ -58,43 +58,34 @@ def build():
     graph_test.add_node("generate_recipes", nodes.generate_recipes)
     graph_test.add_node("confirm_ingrediant", nodes.confirm_ingrediant)
     graph_test.add_node("node_llm", nodes.node_llm)
+    graph_test.add_node("extract_ingredient",nodes.extract_ingredient)
     graph_test.add_node("undeveloped", nodes.undeveloped)
+    
 
     graph_test.add_edge(START, "query_analysis")
     graph_test.add_conditional_edges("query_analysis", 
         nodes.conditional_query_type,
                 path_map={
+                    "extract_ingredient":"extract_ingredient",
                     "retreiver_recipes": "retreiver_recipes",
                     "generate_recipes": "generate_recipes",
                     "undeveloped": "undeveloped",
                     }
                 )
+    
+    graph_test.add_edge("extract_ingredient","retreiver_recipes")
+    graph_test.add_edge("extract_ingredient","generate_recipes")
     graph_test.add_edge("retreiver_recipes",END)
-    graph_test.add_edge("generate_recipes","node_llm")
-    graph_test.add_edge("node_llm", END)
+   
+    ## 임시 엣지
+    graph_test.add_edge("generate_recipes",END)
+    ## 리얼 엣지
+    #graph_test.add_edge("generate_recipes","node_llm")
+    #graph_test.add_edge("node_llm", END)
+
+    
 
     return graph_test.compile()
-
-
-## 이전 버전 
-def build_generate():
-
-    graph_main = StateGraph(OverrallState)
-
-    graph_main.add_node("node_retreive", nodes.node_retreive)
-    graph_main.add_node("node_prompt", nodes.node_prompt)
-    graph_main.add_node("node_llm", nodes.node_llm)
-    graph_main.add_node("node_evaluate", nodes.node_evaluate)
-
-    graph_main.add_edge(START, "node_retreive")
-    graph_main.add_edge("node_retreive", "node_prompt")
-    graph_main.add_edge("node_prompt", "node_llm")
-    graph_main.add_edge("node_llm", END)
-    graph_main.add_conditional_edges("node_evaluate", route_after_eval,
-        {"END": END, "node_retreive": "node_retreive"}
-        )
-    return graph_main.compile()
-
 
 async def run_graph():
     #graph = build_generate()

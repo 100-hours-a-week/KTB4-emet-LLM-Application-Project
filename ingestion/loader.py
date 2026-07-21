@@ -1,22 +1,46 @@
 from glob import glob
 import os
+from pathlib import Path
+import json
 
+from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-document_path = "../Docs/FOOD/RICE" 
+source_dir = Path(__file__).resolve().parent / "recipes" / "original_recipes"
 
 
-def text_loader():
-    return -1
+def json_loader(json_path_list, limit=-1):
+    """
+    JSON 파일을 읽어서 Document로 감싸기만 하는 로더.
+    필드 파싱/텍스트 조합은 하지 않음 (스키마 변경에 안전하게 만들기 위함).
+    """
+    json_docs = []
 
-def md_loader():
-    return -1
+    for p in json_path_list:
+        if limit > -1 and len(json_docs) >= limit:
+            break
 
-def html_loader():
-    return -1
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        doc = Document(
+            page_content=json.dumps(data, ensure_ascii=False),
+            metadata={
+                "source": str(p),
+                "seq": data.get("seq", p.stem),
+            },
+        )
+
+        preview = str(data)[:40].replace("\n", " ")
+        print(f"[{p.name}] {preview}...")
+        json_docs.append(doc)
+
+    print(f"로딩된 전체 JSON Document 파일 수: {len(json_docs)}")
+    return json_docs
 
 
+# 초기버전 / 오리지널 pdf 사용
 def pdf_loader(pdf_path_list, limit=-1):
     pdf_docs = []
     total_pages = 0
@@ -46,11 +70,17 @@ def pdf_loader(pdf_path_list, limit=-1):
 
 
 def fileloader_distributor(limit=-1):
-    pdf_path_list = sorted(glob(document_path+"/*.pdf"))
+    processed_dir = Path(__file__).resolve().parent.parent / "recipes" / "structured_recipes"
+
+    pdf_path_list = sorted(source_dir.glob("*.pdf"))
     pdf_docs = pdf_loader(pdf_path_list, limit=limit)
+
+    json_path_list = sorted(processed_dir.glob("*.json"))
+    json_docs = json_loader(json_path_list, limit=limit)
 
     document = []
     document.extend(pdf_docs)
+    document.extend(json_docs)
 
     return document
 

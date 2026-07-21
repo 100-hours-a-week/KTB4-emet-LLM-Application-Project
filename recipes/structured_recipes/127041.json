@@ -1,0 +1,14 @@
+{
+  "recipe_id": "127041",
+  "title": "간단 볶음밥",
+  "servings": 1,
+  "cook_time": 5,
+  "ingredients": [
+    [
+      "볶음밥 재료명",
+      1.0,
+      "g"
+    ]
+  ],
+  "steps": "1. 조리법을 따름"
+}

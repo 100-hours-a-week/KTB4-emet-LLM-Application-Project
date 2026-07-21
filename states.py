@@ -2,6 +2,7 @@ from typing_extensions import TypedDict,Annotated
 import operator
 from langgraph.graph import StateGraph, MessagesState
 from langgraph.graph.message import add_messages
+import nodes.nodes as nodes
 
 ## 예제 연습용 
 class StateExample(MessagesState):
@@ -36,7 +37,6 @@ class OverrallState_1(MessagesState):
 class OverrallState(MessagesState):
     thread_id: str
     documents:str
-    ingrediant: list
 
     recipes = list
     recipes_state = list
@@ -48,6 +48,9 @@ class OverrallState(MessagesState):
 
     answer: str
     type:str
+
+    ingredient_list: nodes.IngredientList
+
     #message: list
     ## "JUDGE"
     reference: str

@@ -1,13 +1,13 @@
 import os
 from typing import Literal,List,Tuple
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from langchain_core.messages import HumanMessage, AIMessage
 from langsmith import Client
 
-import loader
-import template
-import eval_data
+import ingestion.loader as loader
+import ingestion.template as template
+import eval.eval_data as eval_data
 from states import OverrallState
 
 from dotenv import load_dotenv
@@ -48,22 +48,34 @@ class QueryType(BaseModel):
 
 class Ingredient(BaseModel):
     name: str = Field(description="재료명/조미료명 ex) 밥,계란,돼지고기,김,후추,소금,설탕,식용유")
-    amount_unit:str = Field(description="재료/조미료 측정 단위 ex) T,t,g,개,EA")
     amount:float = Field(description="재료/조미료의 양 ex)0.5,1/3,1,4")
+    amount_unit:str = Field(description="재료/조미료 측정 단위 ex) T,t,g,개,EA")
+    
+    @model_validator(mode="before")
+    @classmethod
+    def validator(cls,answer_ingredients):
+        if len(answer_ingredients) == 3 : 
+            return {"name":answer_ingredients[0], "amount":float(answer_ingredients[1]), "amount_unit":answer_ingredients[2]}
+        return ValueError
+
     
 
 class IngredientList(BaseModel):
     is_empty: bool =Field(description="재료가 하나도 없으면 True/재료가 하나라도 있으면 False")
-    ingredients: List[Ingredient] = Field(description="사용자가 가진 재료 목록 / 레시피의 재료 목록")
+    ingredients: List[Ingredient] = Field(description="사용자/레시피의 재료 양 단위")
+    ingredients_type: List[str] = Field(description="사용자레시피의 재료 이름")
 
-
+    def genrerate_type(self):
+        self.ingredients_type = []
+        for ingredient in self.ingredients:
+           self.ingredients_type.append(ingredient.name)
 
 
 
 def format_docs(ds):
     return "\n\n".join(d.page_content for d in ds)
 
-
+## 미사용 / 초기 함수
 async def node_retreive(state: OverrallState):
     print("현재노드: node_retreive")
     global retriever
@@ -90,16 +102,17 @@ def query_analysis(state: OverrallState):
 
     print(type(result), result)
 
-    return {"query_type": result}
+    return {"query_type": result.type}
 
 ## 다음 노드 선택
-## 다음 노드 만들어지면 return 수정 필요
 def conditional_query_type(state: OverrallState):
     
     print("현재 컨디셔널함수:conditional_query_type")
     print(f"query_type: {state["query_type"]}")
+    print(state["query_type"])
     if state["query_type"] == "레시피 추천":
-        return ["retreiver_recipes", "generate_recipes"]
+        return "extract_ingredient"
+        #return ["retreiver_recipes", "generate_recipes"]
     elif state["query_type"] == "레시피 반응":
         return "undeveloped"
     elif state["query_type"] == "NONETYPE":
@@ -117,26 +130,30 @@ def extract_ingredient(state: OverrallState):
     ## 질의분석 노드에서 왔다면 레시피 추출이 목적
 
     llm_model = loader.llm_loader()
-    extract_ingredient_model = llm_model.with_structured_output(QueryType, method="json_schema" )
+    extract_ingredient_model = llm_model.with_structured_output(IngredientList, method="json_schema" )
     query_extract_ingredient = template.extract_ingredient_prompt.format(query=state["query"])
-
-    result = extract_ingredient_model.invoke(query_extract_ingredient)
-
-    print(type(result), result)
+    try:
+        result = extract_ingredient_model.invoke(query_extract_ingredient)
+        print(type(result), result)
+    except ValueError as e:
+        print(f"검증 실패: {e}")
+        result = IngredientList(is_empty=True, ingredients=[])
     
 
-    return "undeveloped"
+    return {"ingredient_list": result}
 
 
 ## 재료 기반 레시피 검색
 async def retreiver_recipes(state: OverrallState):
+    print("현재노드: retreiver_recipes")
     ## query_analysis -> now -> confirm_ingredient
     recipes = []
     global retriever
     
-    ## undeveloped(): query -> ingrediant
-    query = state["query"]
-    docs = await retriever.ainvoke(query)
+   
+    ingredient_types = state["ingredient_list"].ingredients_type
+    print(ingredient_types)
+    docs = await retriever.ainvoke(ingredient_types)
     print(f"[DEBUG] 검색된 레시피 수: {len(docs)}")
     print(f"[DEBUG] 레시피 미리보기: {[d.page_content[:50] for d in docs]}")
 
@@ -145,15 +162,17 @@ async def retreiver_recipes(state: OverrallState):
 
 ## 재료 기반 레시피 생성
 def generate_recipes(state: OverrallState):
+    print("현재노드: generate_recipes")
     ## query_analysis -> now -> node_llm -> confirm_ingrediant
 
     ## undeveloped(): query -> ingrediant
     ## query_reipes = template.generate_recipes_prompt.format(query=state["query"], ingrediant=state["ingrediant"])
-    query = template.recipe_answer_prompt.format(context=state["documents"], query=state["query"])
+    ingredient_types = state["ingredient_list"].ingredients_type
+    query = template.recipe_answer_prompt.format(ingredients=ingredient_types)
 
     return {"query": query}
 
-
+ 
 ## 레시피 정형화()
 def recipe2strutured(state: OverrallState):
     # 쿼리 내용을 기준으로 쿼리 타입을 분석
