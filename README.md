@@ -23,35 +23,35 @@
 https://github.com/100-hours-a-week/KTB4-emet-LLM-Application-Project/blob/main/Roadmap.md   
 
 ---
-## component(update: 2026.07.23)
-chatbot_project/
-├── app/
-├── eval/
-│   ├── __init__.py
-│   ├── eval_data.py
-│   └── evaluate.py
-├── graph.png
-├── graph.py
-├── ingestion/
-│   ├── __init__.py
-│   ├── loader.py
-│   ├── splitter.py
-│   ├── template.py
-│   └── vectorstore.py
-├── main.py
-├── model/
-├── nodes/
-│   ├── __init__.py
-│   ├── evaluate.py
-│   ├── nodes.py
-│   └── recipe.py
-├── pyproject.toml
-├── recipes/
-│   ├── collect_recipe_links.py
-│   ├── recipe_ids.json
-│   ├── save_recipes_pdf.py
-│   └── structured.py
-└── uv.lock
+## component(update: 2026.07.23)   
+chatbot_project/   
+├── app/   
+├── eval/   
+│   ├── __init__.py     
+│   ├── eval_data.py   
+│   └── evaluate.py  
+├── graph.png  
+├── graph.py  
+├── ingestion/  
+│   ├── __init__.py  
+│   ├── loader.py  
+│   ├── splitter.py  
+│   ├── template.py  
+│   └── vectorstore.py  
+├── main.py  
+├── model/  
+├── nodes/  
+│   ├── __init__.py  
+│   ├── evaluate.py  
+│   ├── nodes.py  
+│   └── recipe.py  
+├── pyproject.toml  
+├── recipes/  
+│   ├── collect_recipe_links.py  
+│   ├── recipe_ids.json  
+│   ├── save_recipes_pdf.py  
+│   └── structured.py  
+└── uv.lock   
 
 ---
 ## version
