@@ -12,16 +12,32 @@
 - 추가 재료가 필요한 레시피 추천                                                <--- **executable/In development**
 - 추천한 레시피가 긍정적이면 새로운 레시피는 문서화 저장                              <--- **In development**
 - 자동 음식 레시피 문서 업데이트                                                <--- **In development**
-- 추천한 레시피가 부정적이면 해당 내용을 고려해서 재생성및 재탐색을 통한 레시피 재추천        <--- **In development**
-- 개인 요청(제한성분(당,염분), 다이어트(칼로리제한), 근성장(단백질), 등)을 고려해서 레시피 추천
-- 추천한 레시피를 사용했단면 개인 히스토리로 저장해서, 다음에 동일한 재료 있을시 우선순위 높여서 추천
-- 나만의 요리 레시피 입력해서 검색가능한 문서화로 저장
-      
+- 추천한 레시피가 부정적이면 해당 내용을 고려해서 재생성및 재탐색을 통한 레시피 재추천        <--- **In development**   
 ---
 
-## Flowchart(draft)
+## Flowchart
 <img width="1360" height="2400" alt="image" src="https://github.com/user-attachments/assets/9d2d87e0-a7ee-4749-bfdb-99c608a8d73e" />
+---
 
+## RoadMap   
+https://github.com/100-hours-a-week/KTB4-emet-LLM-Application-Project/blob/main/Roadmap.md   
+
+---
+## component(update: 2026.07.21)
+chatbot_project/
+├── app/
+├── data/
+├── eval/
+├── graph.py
+├── ingestion/
+    
+├── main.py
+├── model/
+├── nodes/
+├── pyproject.toml
+├── README.md
+├── recipes/
+└── uv.lock
 
 ---
 ## version
