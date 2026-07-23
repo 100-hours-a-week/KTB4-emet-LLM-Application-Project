@@ -97,15 +97,33 @@ extract_ingredient_prompt = ChatPromptTemplate.from_messages([
     ),
     ("human", "사용자의 질의:{query}"),
 ])
-
+## 재료 기반 레시피 생성 전 레시피 생성 가능 여부 판단
+ingredient_analysis_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "당신은 요리사 입니다."
+     "주어진 재료들로만 요리가 가능한 가능한지 먼저 확인해주세요.\n"
+     "추가 재료 없이 레시피 생성이 가능하다면 답변은 \"generated_recipe\" 입니다.\n"
+     "추가 재료가 필요하다면 답변은 \"add_ingredients_reipe\" 입니다.\n"
+     "만약에 주어진 재료로 요리 레시피 제작이 불가능하다면 답변은 \"rejecte_recipe\" 입니다.\n"
+     "출력형태는 다음과 같은 json형태입니다.\n"
+      "```json\n"
+     "  {{\n"
+     " \"recipe_type\": \"generated_recipe\" or \"add_ingredients_reipe\" or \"rejecte_recipe\""
+     "  }}\n"
+     "```\n"
+     "\n\n"),
+    ("human", "주어진 재료:{ingredients}"),
+])
 
 ## 재료 기반 레시피 생성 프롬프트
-generate_recipes_prompt = ChatPromptTemplate.from_messages([
+generate_recipe_prompt = ChatPromptTemplate.from_messages([
     ("system",
-     "주어진 재료로 요리가 가능한 레시피 제작이 가능한지 먼저 확인해주세요."
-     "만약에 주어진 재료로 요리 레시피 제작이 불가능하다면 '재료가 부족합니다. 추가재료가 필요합니다.'를 출력합니다."
-     "그리고 최대한 적게 새로운 재료들을 추가해서 레시피를 만들어주세요.  추가 재료는 식용이 가능한 정상적인 재료입니다."
-     "사용자가 건네준 재료들로 요리가 가능하다면, 다음의 조건을 만족하는 요리 레시피를 만들어주세요. "
+     "당신은 요리사 입니다."
+     "주어진 재료들로만 요리가 가능한 가능한지 먼저 확인해주세요."
+     "추가 재료 없이 레시피 생성이 가능하다면 recipe_type은 'generated_recipe' 입니다."
+     "추가 재료가 필요하다면 recipe_type은 'add_ingredients_reipe' 입니다."
+     "만약에 주어진 재료로 요리 레시피 제작이 불가능하다면 recipe_type은 'rejecte_recipe' 입니다."
+     "사용자가 건네준 재료들로 다음의 조건을 만족하는 요리 레시피를 만들어주세요. "
      "1. 만든 레시피는 사람이 정상적으로 먹을 수 있다. "
      "2. 들어간 재료의 조합 또는 조리법에 문제가 없어야합니다. "
      "3. 괴식이 아니어야합니다."
@@ -115,11 +133,16 @@ generate_recipes_prompt = ChatPromptTemplate.from_messages([
      ## 레시피 생성형태 -> RAG 문서와 동일하게 생성해야함!!!
      ## 현재는 str 형태 -> 최종형태는 json형태
      "\n\n"),
-    ("human", "주어진 재료:{ingrediant}"),
+    ("human", "주어진 재료:{ingredients}"),
 ])
 
 
-## 레시피 재료 검토 프롬프트
+
+
+## <-------------------------------------------------- < 미사용 > ------------------------------------------>
+
+
+## 레시피 재료 검토 프롬프트 -> 현재 노드 삭제함 만약을 위해서 남겨둠
 confirm_ingrediant_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사 입니다."
@@ -133,7 +156,7 @@ confirm_ingrediant_prompt = ChatPromptTemplate.from_messages([
      "1번 조건의 레시피는 '[부족한재료1,부족한재료2,...,부족한재료n]'와 같은 형태로 반환해줘"
      "2번,3번,4번 조건은 상태를 반환해줘"
      "\n\n"),
-    ("human", "현재 재료:{ingrediant}, 레시피: {recipe}"),
+    ("human", "현재 재료:{ingredient}, 레시피: {recipe}"),
 ])
 
 
@@ -147,7 +170,7 @@ generate_answer_prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-## node_prompt - RECIPE 타입 프롬프트
+## node_prompt - RECIPE 타입 프롬프트 -< 테스트 초기버전 개발 이후 더이상 미사용
 recipe_answer_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 각종 요리 레시피를 알고 있는 요리전문가 및 요리사 입니다. "

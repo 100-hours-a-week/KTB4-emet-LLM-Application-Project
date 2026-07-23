@@ -3,14 +3,14 @@
 .env
 
 
-
 # Python-generated files
-__pycache__/
+__pycache__
 *.py[oc]
 build/
 dist/
 wheels/
 *.egg-info
+
 claude
 claude/
 claude/*
@@ -22,5 +22,20 @@ data/*
 recipes/original_recipes
 recipes/structured_recipes
 
+# OS-generated files
+.DS_Store
+Thumbs.db
 
+# IDE / editor settings
+.vscode/
+.idea/
 
+# Logs
+*.log
+
+# Test / notebook cache
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Local vector store persistence (if ChromaDB writes to disk here)
+# chroma_db/
