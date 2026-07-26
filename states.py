@@ -14,49 +14,26 @@ def add_count(a: int, b: int) -> int:
     return a+b
 
 
-## {messages,tool_calls_count,final_answer} add_messages Reducer 상속됨
-## 0.0.1
-class OverrallState_1(MessagesState):
-    thread_id: str
-    documents:str
-    query: str
-    answer: str
-    type:str
-    #message: list
-    ## "JUDGE"
-    reference: str
-    prediction: str
-    score:float
 
-    ## check loop
-    loop:int
-
-
-
-## add multi documnets
+## 기본 메세지 스테이트 -> 리팩토링에서 노드 진행에 따라 메시지 구분해서 분리예정
 class OverrallState(MessagesState):
     thread_id: str
-    documents:str
-
-    recipes = list
-    recipes_state = list
-    recipes_craftable:str
-    recipes_not_craftable:str
-
-    query_type:str
+        ## 질의 입력
     query: str
-
+    ## 질의 분석
+    query_type:str
+    ## 질의 대답
     answer: str
-    type:str
-
+    ## 질의에서 추추된 재료 리스트(재료 추출)
     ingredient_list: nodes.IngredientList
+    ## 생성된 레시피(재료 검토 -> 레시피 생성)
+    generated_recipe:nodes.GeneratedRecipe
+    ## 검색된 레시피 리스트()
+    retrieved_recipes: nodes.RecipeList
 
-    #message: list
-    ## "JUDGE"
-    reference: str
-    prediction: str
-    score:float
+    ## ---- 아직 미사용 ----
 
-    ## check loop
-    loop:int
+    ## loops
+    ### total_loop
+    total_loop:int
 

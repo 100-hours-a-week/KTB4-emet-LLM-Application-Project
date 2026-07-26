@@ -55,10 +55,10 @@ def build():
 
     graph_test.add_node("query_analysis", nodes.query_analysis)
     graph_test.add_node("retreiver_recipes", nodes.retreiver_recipes)
-    graph_test.add_node("generate_recipes", nodes.generate_recipes)
-    graph_test.add_node("confirm_ingrediant", nodes.confirm_ingrediant)
+    graph_test.add_node("generate_recipe", nodes.generate_recipe)
     graph_test.add_node("node_llm", nodes.node_llm)
     graph_test.add_node("extract_ingredient",nodes.extract_ingredient)
+    graph_test.add_node("ingredient_analysis", nodes.ingredient_analysis)
     graph_test.add_node("undeveloped", nodes.undeveloped)
     
 
@@ -68,19 +68,28 @@ def build():
                 path_map={
                     "extract_ingredient":"extract_ingredient",
                     "retreiver_recipes": "retreiver_recipes",
-                    "generate_recipes": "generate_recipes",
+                    "generate_recipe": "generate_recipe",
                     "undeveloped": "undeveloped",
                     }
                 )
     
     graph_test.add_edge("extract_ingredient","retreiver_recipes")
-    graph_test.add_edge("extract_ingredient","generate_recipes")
+    graph_test.add_edge("extract_ingredient","ingredient_analysis")
+    ## 미완성 추가 매핑 노드 필요
+    graph_test.add_conditional_edges("ingredient_analysis", 
+        nodes.conditional_ingredient_analysis,
+                path_map={
+                    "generate_recipe":"generate_recipe",
+                    "undeveloped": "undeveloped",
+                    }
+                )
+    
     graph_test.add_edge("retreiver_recipes",END)
    
     ## 임시 엣지
-    graph_test.add_edge("generate_recipes",END)
+    graph_test.add_edge("generate_recipe",END)
     ## 리얼 엣지
-    #graph_test.add_edge("generate_recipes","node_llm")
+    #graph_test.add_edge("generate_recipe","node_llm")
     #graph_test.add_edge("node_llm", END)
 
     

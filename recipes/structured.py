@@ -22,18 +22,9 @@ load_dotenv()
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google")
 
 
-class RecipeContent(BaseModel):
-    title: str = Field(description="요리 이름 (부제의 재료가 있으면 '재료 요리이름' 형태)")
-    servings: int = Field(description="분량 (인분)")
-    cook_time: int = Field(description="조리시간 (분, 5분 단위)")
-    ingredients: List[Tuple[str, float, str]] = Field(
-        description="재료+양념 리스트. [재료명, 양, 단위]. 비수치 표현은 [재료명, -1, '']"
-    )
-    steps: str = Field(description="조리순서 (Tip 이후 제외, 줄바꿈으로 단계 구분)")
-
 
 class StructuredRecipe(BaseModel):
-    recipe_id: str = Field(description="레시피 고유 id (원본 파일명의 '_' 앞 숫자)")
+    recipe_id: str | None = Field(default=None, description="레시피 고유 id (원본 파일명의 '_' 앞 숫자) 또는 생성된 레시피는 앞에G가 붙음")
     title: str = Field(description="요리 이름 (부제의 재료가 있으면 '재료 요리이름' 형태)")
     servings: int = Field(description="분량 (인분)")
     cook_time: int = Field(description="조리시간 (분, 5분 단위)")
@@ -43,9 +34,9 @@ class StructuredRecipe(BaseModel):
     steps: str = Field(description="조리순서 (Tip 이후 제외, 줄바꿈으로 단계 구분)")
 
 
-async def recipe2strutured(recipe_text: str, max_retries: int = 2) -> RecipeContent:
+async def recipe2strutured(recipe_text: str, max_retries: int = 2) -> StructuredRecipe:
     llm_model = loader.llm_loader()
-    recipe2strutured_model = llm_model.with_structured_output(RecipeContent, method="json_schema")
+    recipe2strutured_model = llm_model.with_structured_output(StructuredRecipe, method="json_schema")
     query_strutured_recipe = template.recipe2strutured_prompt.format(recipe=recipe_text)
 
     last_error = None
@@ -73,6 +64,7 @@ def save_recipe_json(recipe: StructuredRecipe, out_dir: Path) -> None:
 
 
 async def process_recipe(doc, out_dir: Path) -> None:
+    ## 파일명에서 추출
     recipe_id = extract_recipe_id(doc.metadata.get("source", "unknown"))
     """
     ## 파일 이름 검증 코드
@@ -82,8 +74,8 @@ async def process_recipe(doc, out_dir: Path) -> None:
     """
     
     try:
-        recipe_content = await recipe2strutured(doc.page_content)
-        structured_recipe = StructuredRecipe(recipe_id=recipe_id, **recipe_content.model_dump())
+        structured_recipe = await recipe2strutured(doc.page_content)
+        structured_recipe.recipe_id = recipe_id
         save_recipe_json(structured_recipe, out_dir)
         print(f"[성공] {recipe_id} - {structured_recipe.title}")
     except Exception as e:
