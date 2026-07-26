@@ -1,7 +1,7 @@
 # Virtual environments
 .venv
 .env
-
+.DS_Store
 
 # Python-generated files
 __pycache__
