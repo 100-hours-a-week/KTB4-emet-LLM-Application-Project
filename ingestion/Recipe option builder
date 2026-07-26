@@ -1,0 +1,56 @@
+"""
+RAG 문서 탐색으로 찾은 레시피들의 '추가로 필요한 재료'를 LLM 없이 계산하고,
+LLM 생성 옵션과 하나의 선택지 목록으로 합치는 유틸.
+"""
+
+from schems import RecipeOption, RecipeOptionList,StructuredRecipe,IngredientList,PreviewOption,PreviewOptionList
+
+
+def compute_missing_ingredients(
+    recipe: StructuredRecipe,
+    user_ingredients: IngredientList,
+) -> list[str]:
+    """
+    레시피가 요구하는 재료명과 사용자가 가진 재료명(IngredientList.ingredients_type)을
+    비교해서, 사용자에게 없는(=추가로 필요한) 재료명만 리스트로 반환한다.
+ 
+    이름 표기 차이(예: '대파' vs '파')로 인한 오탐을 줄이려면
+    비교 전에 별도의 재료명 정규화(동의어 매핑) 단계를 추가하는 걸 추천한다.
+    """
+    # StructuredRecipe.ingredients: List[Tuple[str, float, str]] -> 이름만 추출
+    recipe_ingredient_names = {ing[0] for ing in recipe.ingredients}
+ 
+    if not user_ingredients.ingredients_type:
+        user_ingredients.genrerate_type()  # 기존 스키마의 오탈자 메서드명 그대로 사용
+    user_ingredient_names = set(user_ingredients.ingredients_type)
+ 
+    missing = recipe_ingredient_names - user_ingredient_names
+    return sorted(missing)
+ 
+ 
+def build_rag_recipe_options(
+    rag_recipes: list[StructuredRecipe],
+    user_ingredients: IngredientList,
+) -> list[RecipeOption]:
+    """RAG 탐색 결과들을 RecipeOption 리스트로 변환한다 (LLM 호출 없음)."""
+    options = []
+    for recipe in rag_recipes:
+        missing = compute_missing_ingredients(recipe, user_ingredients)
+        options.append(
+            RecipeOption(
+                title=recipe.title,
+                source="rag",
+                recipe_id=recipe.recipe_id,
+                needed_ingredients=missing,
+            )
+        )
+    return options
+ 
+ 
+def merge_recipe_options(
+    generated_options: list[RecipeOption],
+    rag_options: list[RecipeOption],
+) -> RecipeOptionList:
+    """LLM 생성 옵션 + RAG 옵션을 하나의 선택지 목록으로 합친다."""
+    return RecipeOptionList(options=[*rag_options, *generated_options])
+ 

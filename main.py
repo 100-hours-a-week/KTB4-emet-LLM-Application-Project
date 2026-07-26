@@ -32,6 +32,7 @@ async def query(req: QueryRequest):
 
     
     answer = await app.state.rag.ainvoke({"query": req.question})
+    print("\n\n대답\n\n")
     print(f"answer:\n{answer}")
     
     return QueryResponse(answer=answer)

@@ -87,7 +87,7 @@ extract_ingredient_prompt = ChatPromptTemplate.from_messages([
      "```json\n"
      "  {{\n"
      "    \"is_empty\": True or False,\n"
-     "    \"ingredients_type\": [재료명, 재료명2] "
+     "    \"ingredients_name\": [재료명, 재료명2] "
      "    \"ingredients\": [\n"
      "      [\"재료명\", 1.0, \"단위\"],\n"
      "      [\"재료명2\", -1, \"\"]\n"
@@ -115,6 +115,7 @@ ingredient_analysis_prompt = ChatPromptTemplate.from_messages([
     ("human", "주어진 재료:{ingredients}"),
 ])
 
+
 ## 재료 기반 레시피 생성 프롬프트
 generate_recipe_prompt = ChatPromptTemplate.from_messages([
     ("system",
@@ -137,6 +138,49 @@ generate_recipe_prompt = ChatPromptTemplate.from_messages([
 ])
 
 
+
+# 1) 예비 선택지 제시 (재료 부족 시, 요리 이름 + 필요 추가재료만 먼저 보여줌) 
+preview_recipe_options_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "당신은 요리사 입니다."
+     "주어진 재료만으로는 레시피를 만들기 부족한 상황이며, 아직 완전한 레시피를 만들 필요는 없습니다."
+     "사용자가 '이 요리로 할지 말지'를 결정할 수 있는 예비 요리 후보들만 제시해주세요."
+     "다음의 조건을 만족하는 요리 후보를 {option_count}개 제시해주세요. "
+     "1. 만든 요리는 사람이 정상적으로 먹을 수 있어야 합니다. "
+     "2. 재료 조합 또는 조리법에 문제가 없어야 합니다. "
+     "3. 괴식이 아니어야 합니다. "
+     "4. 이 세상에 존재하지 않는 요리가 아닌, 기존에 존재하는 음식의 종류여야 합니다. "
+     "5. 최대 30분 이내 완성되는 요리여야 합니다. "
+     "6. 주어진 재료를 최대한 활용하고, 추가 재료(needed_ingredients)는 반드시 필요한 것만 최소한으로 산정해주세요. "
+     "7. '있으면 더 좋은' 수준의 재료나, 일반 가정/마트에서 구하기 어려운 특수 재료는 추가하지 마세요. "
+     "8. 후보들은 서로 다른 요리여야 하며, 추가 재료가 적은 후보를 우선 배치해주세요. "
+     "9. 이 단계에서는 title과 needed_ingredients만 제시하고, 조리법이나 정확한 재료 양은 작성하지 마세요. "
+     "\n\n"),
+    ("human", "주어진 재료: {ingredients}"),
+])
+ 
+ 
+# 2) 선택된 예비 옵션으로 정식 레시피 완성
+finalize_recipe_from_preview_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "당신은 요리사 입니다."
+     "사용자는 이미 제시된 예비 요리 후보 중 하나를 선택했고, 그 요리 이름과 추가 재료 목록을 승인했습니다."
+     "이 정보를 그대로 반영하여 완전한 레시피를 작성해주세요."
+     "다음의 조건을 만족하는 레시피를 만들어주세요. "
+     "1. 만든 레시피는 사람이 정상적으로 먹을 수 있어야 합니다. "
+     "2. 재료 조합 또는 조리법에 문제가 없어야 합니다. "
+     "3. 괴식이 아니어야 합니다. "
+     "4. 최대 30분 이내 요리가 완성되는 요리여야 합니다. "
+     "5. title은 선택한 요리 이름과 동일하게 유지하고 임의로 바꾸지 마세요. "
+     "6. ingredients에는 주어진 재료와 추가 재료 목록을 모두 포함해주세요. "
+     "7. 추가 재료 목록에 없는 새로운 재료를 임의로 더 추가하지 마세요. "
+     ## 레시피 생성형태 -> RAG 문서와 동일하게 생성해야함!!!
+     "\n\n"),
+    ("human",
+     "주어진 재료: {ingredients}\n"
+     "선택한 요리: {selected_title}\n"
+     "추가 재료 목록: {needed_ingredients}"),
+])
 
 
 ## <-------------------------------------------------- < 미사용 > ------------------------------------------>
