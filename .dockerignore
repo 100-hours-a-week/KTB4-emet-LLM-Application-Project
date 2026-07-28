@@ -5,5 +5,33 @@ __pycache__
 .git
 .gitignore
 chroma_db
-README.md
 docs
+
+.DS_Store
+
+claude
+claude/
+claude/*
+
+data
+data/
+data/*
+
+
+recipes/original_recipes
+recipes/structured_recipes
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# IDE / editor settings
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Test / notebook cache
+.pytest_cache/
+.ipynb_checkpoints/
