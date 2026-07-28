@@ -32,22 +32,35 @@ def undeveloped(state: OverrallState):
 def format_docs(ds):
     return "\n\n".join(d.page_content for d in ds)
 
+## 최근 대화 몇 턴을 프롬프트에 넣을 텍스트로 정리
+def _format_recent_context(messages, max_turns=3):
+    if not messages:
+        return "(이전 대화 없음)"
+ 
+    recent = messages[-(max_turns * 2):]
+    lines = []
+    for m in recent:
+        role = "사용자" if m.type == "human" else "AI"
+        lines.append(f"{role}: {m.content}")
+ 
+    return "\n".join(lines) if lines else "(이전 대화 없음)"
 
 ## 질의 분석
 def query_analysis(state: OverrallState):
-    # node_prompt -> now -> retreiver_recipes
-    #                    -> generate_recipe
-    # 쿼리 내용을 기준으로 쿼리 타입을 분석
-    print(LLM_PROVIDER)
     print("현재노드: query_analysis")
     llm_model = loader.llm_loader()
-    query_analysis_model = llm_model.with_structured_output(QueryType, method="json_schema" )
-    query_analysis = template.query_analysis_prompt.format(query=state["query"])
-
-    result = query_analysis_model.invoke(query_analysis)
-
+    query_analysis_model = llm_model.with_structured_output(QueryType, method="json_schema")
+ 
+    recent_context = _format_recent_context(state.get("messages", []))
+    query_analysis_query = template.query_analysis_prompt.format(
+        query=state["query"],
+        recent_context=recent_context,
+    )
+ 
+    result = query_analysis_model.invoke(query_analysis_query)
+ 
     print(type(result), result)
-
+ 
     return {"query_type": result.type}
 
 
@@ -60,7 +73,9 @@ def conditional_query_type(state: OverrallState):
         return "extract_ingredient"
         #return ["retreiver_recipes", "generate_recipes"]
     elif state["query_type"] == "레시피 반응":
-        return "undeveloped"
+            return "undeveloped"
+    elif state["query_type"] == "레시피 선택":
+        return "undeveloped" # <- 노드 연결 필요
     elif state["query_type"] == "NONETYPE":
         return "undeveloped"
     elif state["query_type"] == "NONE":
@@ -258,8 +273,10 @@ def present_recipe_options (state:OverrallState):
     answer = "\n".join(lines)
     print(f"\n\npresent_recipe_options answer:\n{answer}\n\n")
  
-    return {"answer": answer}
- 
+    return {
+        "answer": answer,
+        "messages": [HumanMessage(content=state["query"]), AIMessage(content=answer)],
+    }
 ## 레시피 정형화()
 def recipe2strutured(state: OverrallState):
     # 쿼리 내용을 기준으로 쿼리 타입을 분석
