@@ -71,11 +71,10 @@ def conditional_query_type(state: OverrallState):
     print(state["query_type"])
     if state["query_type"] == "레시피 추천":
         return "extract_ingredient"
-        #return ["retreiver_recipes", "generate_recipes"]
-    elif state["query_type"] == "레시피 반응":
-            return "undeveloped"
     elif state["query_type"] == "레시피 선택":
-        return "undeveloped" # <- 노드 연결 필요
+            return "select_recipe_option" 
+    elif state["query_type"] == "레시피 반응":
+        return "undeveloped"
     elif state["query_type"] == "NONETYPE":
         return "undeveloped"
     elif state["query_type"] == "NONE":

@@ -12,6 +12,7 @@ import nodes.nodes as nodes
 from states import OverrallState
 from ingestion.vectorstore import VectorStore
 
+from nodes import select_recipe_option_nodes 
 
 
 ## 실행 위치(cwd)와 무관하게 프로젝트 루트 기준으로 .env 로딩
@@ -60,45 +61,72 @@ def route_after_eval(state: OverrallState) -> str:
 ## 재료 기반 레시피 흐름 그래프
 def build():
     graph_test = StateGraph(OverrallState)
-
+ 
     graph_test.add_node("query_analysis", nodes.query_analysis)
     graph_test.add_node("retreiver_recipes", nodes.retreiver_recipes)
-    graph_test.add_node("extract_ingredient",nodes.extract_ingredient)
+    graph_test.add_node("extract_ingredient", nodes.extract_ingredient)
     graph_test.add_node("ingredient_analysis", nodes.ingredient_analysis)
     graph_test.add_node("undeveloped", nodes.undeveloped)
     graph_test.add_node("preview_recipe_options", nodes.preview_recipe_options)
     graph_test.add_node("build_rag_recipe_options", nodes.build_rag_recipe_options)
     graph_test.add_node("present_recipe_options", nodes.present_recipe_options)
-
+ 
+    graph_test.add_node(
+        "select_recipe_option", select_recipe_option_nodes.select_recipe_option
+    )
+    graph_test.add_node(
+        "finalize_recipe", select_recipe_option_nodes.finalize_recipe
+    )
+    graph_test.add_node(
+        "fetch_rag_recipe", select_recipe_option_nodes.fetch_rag_recipe
+    )
+ 
     graph_test.add_edge(START, "query_analysis")
-    graph_test.add_conditional_edges("query_analysis", 
+    graph_test.add_conditional_edges(
+        "query_analysis",
         nodes.conditional_query_type,
-                path_map={
-                    "extract_ingredient":"extract_ingredient",
-                    "retreiver_recipes": "retreiver_recipes",
-                    "undeveloped": "undeveloped",
-                    }
-                )
-    
-    graph_test.add_edge("extract_ingredient","ingredient_analysis")
-    ## 미완성 추가 매핑 노드 필요
-    graph_test.add_conditional_edges("ingredient_analysis", 
+        path_map={
+            "extract_ingredient": "extract_ingredient",
+            "retreiver_recipes": "retreiver_recipes",
+            "select_recipe_option": "select_recipe_option",
+            "undeveloped": "undeveloped",
+        },
+    )
+ 
+    graph_test.add_edge("extract_ingredient", "ingredient_analysis")
+    graph_test.add_conditional_edges(
+        "ingredient_analysis",
         nodes.conditional_ingredient_analysis,
-                path_map={
-                        "preview_recipe_options": "preview_recipe_options",
-                        "retreiver_recipes":"retreiver_recipes",
-                        "undeveloped": "undeveloped",
-                    }
-                )
+        path_map={
+            "preview_recipe_options": "preview_recipe_options",
+            "retreiver_recipes": "retreiver_recipes",
+            "undeveloped": "undeveloped",
+        },
+    )
+ 
     graph_test.add_edge("retreiver_recipes", "build_rag_recipe_options")
+ 
     graph_test.add_edge("preview_recipe_options", "present_recipe_options")
     graph_test.add_edge("build_rag_recipe_options", "present_recipe_options")
     graph_test.add_edge("present_recipe_options", END)
+ 
+    graph_test.add_conditional_edges(
+        "select_recipe_option",
+        select_recipe_option_nodes.conditional_select_recipe_option,
+        path_map={
+            "invalid": END,
+            "finalize_recipe": "finalize_recipe",
+            "fetch_rag_recipe": "fetch_rag_recipe",
+        },
+    )
+    graph_test.add_edge("finalize_recipe", END)
+    graph_test.add_edge("fetch_rag_recipe", END)
+ 
     graph_test.add_edge("undeveloped", END)
+ 
     checkpointer = MemorySaver()
-    ##checkpointer=checkpointer
     return graph_test.compile(checkpointer=checkpointer)
-
+    
 
 async def run_graph():
     #graph = build_generate()

@@ -165,7 +165,21 @@ preview_recipe_options_prompt = ChatPromptTemplate.from_messages([
 ])
  
  
-# 2) 선택된 예비 옵션으로 정식 레시피 완성
+
+option_match_prompt = ChatPromptTemplate.from_messages([
+    ("system",
+     "사용자가 아래 요리 옵션 목록 중 하나를 골랐습니다. "
+     "사용자의 발화가 오타나 표현 차이가 있어도, 의미상 명확히 목록의 특정 요리 "
+     "하나를 가리킨다면 그 요리의 title을 그대로 반환해주세요. "
+     "목록에 없는 요리를 말하거나, 여러 개를 동시에 말하거나, 의미가 모호해서 "
+     "특정할 수 없다면 matched_title은 반드시 null입니다. "
+     "목록에 없는 title을 지어내지 마세요.\n\n"
+     "요리 옵션 목록:\n{option_titles}"
+    ),
+    ("human", "사용자의 발화: {query}"),
+])
+
+
 finalize_recipe_from_preview_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사 입니다."
@@ -185,64 +199,4 @@ finalize_recipe_from_preview_prompt = ChatPromptTemplate.from_messages([
      "주어진 재료: {ingredients}\n"
      "선택한 요리: {selected_title}\n"
      "추가 재료 목록: {needed_ingredients}"),
-])
-
-
-## <-------------------------------------------------- < 미사용 > ------------------------------------------>
-
-
-## 레시피 재료 검토 프롬프트 -> 현재 노드 삭제함 만약을 위해서 남겨둠
-confirm_ingrediant_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "당신은 요리사 입니다."
-     "현재 재료와 주어진 레시피의 재료를 비교하세요. "
-     "다음 조건에 따라 레시피의 상태를 나누세요. "
-     "1. 현재 재료는 레시피 재료를 불만족하면 레시피의 상태는 '재료 부족'입니다. "
-     "2. 현재 재료는 레시피 재료를 만족하면서도 오히려 재료가 넘친다면 레시피의 상태는 '재료 충분(잉여있음)'"
-     "3. 현재 재료와 레시피의 재료가 동일하다면 레시피의 상태는 '재료 정확히 일치'입니다. "
-     "4. 그외의 레시피의 상태는 '문제 발생'입니다. "
-     "조건을 충족한 레시피 상태에 따라 아래의 형태로 반환해주세요."
-     "1번 조건의 레시피는 '[부족한재료1,부족한재료2,...,부족한재료n]'와 같은 형태로 반환해줘"
-     "2번,3번,4번 조건은 상태를 반환해줘"
-     "\n\n"),
-    ("human", "현재 재료:{ingredient}, 레시피: {recipe}"),
-])
-
-
-## node_prompt - GENERATE 타입 프롬프트
-generate_answer_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "다음 문서를 근거로 사용자 질문에 답하세요. "
-     "근거가 부족하면 '주어진 자료에서는 확인할 수 없습니다.'라고 답하세요.\n\n"
-     "{context}"),
-    ("human", "{query}"),
-])
-
-
-## node_prompt - RECIPE 타입 프롬프트 -< 테스트 초기버전 개발 이후 더이상 미사용
-recipe_answer_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "당신은 각종 요리 레시피를 알고 있는 요리전문가 및 요리사 입니다. "
-     "질문이 요리레시피와 관련된 내용이 아니라면 '죄송합니다. 저는 요리 레시피 관련 정보만 제공합니다'를 답하세요. "
-     "사용자가 건네준 재료들로 재료들 만으로 주어진 문서안의 레시피의 재료들과 비교하여 요리 가능한 레시피를 우선적으로 답해주세요. "
-     "레시피에서 추가재료가 필요하다면 추가재료가 적은순으로 레시피를 답해줘.  "
-     "모든 문서들의 레시피가 불가능하다면 재료들을 근거로 새로운 레시피를 만들되 맛과 식감을 생각하고 답하세요."
-     "사용자가 제시한 재료들로 요리가 불가능하다면 '현재 재료는 요리가 불가능합니다. 추가 재료가 필요합니다'라고 답하세요. "
-     "문서들의 레시피 재료를 확인하고, 추가 재료가 적은 순으로 필요한 추가재료와 레시피를 답하세요. "
-     "\n\n"),
-    ("human", "{ingredients}"),
-])
-
-
-## node_prompt - JUDGE 타입 프롬프트
-judge_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "당신은 답변 품질을 평가하는 채점자입니다.\n"
-     "아래 기대 답변(reference)과 모델 답변(prediction)을 비교하고,\n"
-     "의미가 일치하면 1, 부분적으로만 일치하면 0.5, 무관하면 0을 점수로 매기세요.\n"
-     "응답은 반드시 첫 줄에 0/0.5/1 중 하나의 숫자만, 둘째 줄부터 짧은 이유를 적으세요."),
-    ("human",
-     "질문: {query}\n\n"
-     "기대 답변: {reference}\n\n"
-     "모델 답변: {prediction}"),
 ])

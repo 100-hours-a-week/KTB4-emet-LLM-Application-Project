@@ -6,9 +6,8 @@ class StructuredRecipe(BaseModel):
     title: str = Field(description="요리 이름 (부제의 재료가 있으면 '재료 요리이름' 형태)")
     servings: int = Field(description="분량 (인분)")
     cook_time: int = Field(description="조리시간 (분, 5분 단위)")
-    ingredients: List[List] = Field(
-        description="재료+양념 리스트. [재료명, 양, 단위]. 비수치 표현은 [재료명, -1, '']"
-    )
+    ingredients: List[List[str | float]] = Field(
+    description="재료+양념 리스트. [재료명, 양, 단위]. 비수치 표현은 [재료명, -1, '']")
     steps: str = Field(description="조리순서 (Tip 이후 제외, 줄바꿈으로 단계 구분)")
 
 class IngredientFeasibility(BaseModel):
@@ -106,3 +105,16 @@ class RecipeOption(BaseModel):
 class RecipeOptionList(BaseModel):
     """LLM 생성 옵션 + RAG 탐색 옵션을 합친 최종 선택지 목록."""
     options: List[RecipeOption] = Field(description="사용자가 고를 수 있는 전체 요리 선택지 목록")
+
+
+
+class OptionMatchResult(BaseModel):
+    """사용자 발화가 옵션 목록 중 어떤 걸 가리키는지 LLM이 판단한 결과."""
+    matched_title: str | None = Field(
+        default=None,
+        description=(
+            "사용자가 가리키는 요리와 정확히 일치하는 옵션 목록의 title 값. "
+            "오타나 표현 차이가 있어도 의미상 명확히 하나를 가리키면 그 title을 그대로 반환. "
+            "모호하거나 목록에 해당하는 요리가 없으면 반드시 null."
+        ),
+    )
