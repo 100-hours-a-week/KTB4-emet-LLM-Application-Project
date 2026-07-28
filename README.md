@@ -60,8 +60,8 @@ chatbot_project/
 - 0.x.2: refactoring              
 - 0.x.3: ranggraph   <--- **now processing**
 ### Minor Version (0.N.x) — LLM Provider Branch
-- 0.0.x: adapt model free gen ai(geminai, ollama, etc)  <--- **now processing**
-- 0.1.x: adapt model not free gen ai(claude)
+- 0.0.x: adapt model free gen ai(geminai, ollama, etc)
+- 0.1.x: adapt model not free gen ai(claude)  <--- **now processing**
 - 0.2.x: adapt model my gen ai
 
 ---
@@ -69,7 +69,7 @@ chatbot_project/
 ## 실행방법
 
 ~~~
-ollama run gemma4:e2b-mlx
+# .env에 ANTHROPIC_API_KEY 설정 필요 (LLM_PROVIDER="claude")
 
 # 1.before main query, evaluate RAG
 uv run evaluate.py

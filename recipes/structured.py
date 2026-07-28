@@ -1,5 +1,8 @@
 """
-- 올라마 켜진상태여야함
+3단계: original_recipes/*.pdf -> LLM 구조화 -> structured_recipes/<recipe_id>.json
+
+- ANTHROPIC_API_KEY가 .env에 설정되어 있어야 함 (LLM_PROVIDER=claude)
+- 원본 PDF만 읽으며, 이미 구조화된 레시피(<recipe_id>.json 존재)는 자동으로 건너뜀
 uv run -m recipes.structured
 """
 import asyncio
@@ -12,6 +15,7 @@ from typing import List, Tuple
 from pydantic import BaseModel, Field
 import json
 
+from langchain_community.document_loaders import PyPDFLoader
 
 import ingestion.loader as loader
 import ingestion.template as template
@@ -21,6 +25,8 @@ load_dotenv()
 
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google")
 
+ORIGINAL_DIR = Path(__file__).resolve().parent / "original_recipes"
+STRUCTURED_DIR = Path(__file__).resolve().parent / "structured_recipes"
 
 
 class StructuredRecipe(BaseModel):
@@ -63,42 +69,47 @@ def save_recipe_json(recipe: StructuredRecipe, out_dir: Path) -> None:
         json.dump(recipe.model_dump(), f, ensure_ascii=False, indent=2)
 
 
-async def process_recipe(doc, out_dir: Path) -> None:
-    ## 파일명에서 추출
-    recipe_id = extract_recipe_id(doc.metadata.get("source", "unknown"))
-    """
-    ## 파일 이름 검증 코드
-    source = doc.metadata.get("source", "unknown")
-    print(f"[디버그] source: {source}")   # 실제로 들어오는 값 확인용
-    recipe_id = extract_recipe_id(source)
-    """
-    
+async def structure_pdf_file(pdf_path: Path, out_dir: Path = STRUCTURED_DIR) -> bool:
+    """PDF 파일 하나를 구조화해서 JSON으로 저장. 이미 결과가 있으면 건너뜀."""
+    recipe_id = extract_recipe_id(str(pdf_path))
+
+    if (out_dir / f"{recipe_id}.json").exists():
+        print(f"[건너뜀] {recipe_id} - 이미 구조화됨")
+        return True
+
+    pages = PyPDFLoader(str(pdf_path)).load()
+    recipe_text = "\n".join(page.page_content for page in pages)
+
     try:
-        structured_recipe = await recipe2strutured(doc.page_content)
+        structured_recipe = await recipe2strutured(recipe_text)
         structured_recipe.recipe_id = recipe_id
         save_recipe_json(structured_recipe, out_dir)
         print(f"[성공] {recipe_id} - {structured_recipe.title}")
+        return True
     except Exception as e:
         print(f"[실패] {recipe_id}: {e}")
-    
+        return False
 
-# 기존 병렬 처리 버전 (동시에 여러 문서를 LLM에 요청)
-async def load_recipe_pdf_parallel():
-    original_recipes = loader.fileloader_distributor(5)
-    out_dir = Path(__file__).resolve().parent / "structured_recipes"
 
+def original_pdf_paths(limit: int = -1) -> list[Path]:
+    pdf_paths = sorted(ORIGINAL_DIR.glob("*.pdf"))
+    if limit > -1:
+        pdf_paths = pdf_paths[:limit]
+    print(f"원본 PDF {len(pdf_paths)}개 대상 (이미 구조화된 레시피는 건너뜀)")
+    return pdf_paths
+
+
+# 병렬 처리 버전 (동시에 여러 문서를 LLM에 요청)
+async def load_recipe_pdf_parallel(limit: int = -1):
     await asyncio.gather(
-        *(process_recipe(doc, out_dir) for doc in original_recipes)
+        *(structure_pdf_file(p) for p in original_pdf_paths(limit))
     )
 
 
-# 새로 추가한 직렬 처리 버전 (문서를 하나씩 순서대로 처리)
-async def load_recipe_pdf_serial():
-    original_recipes = loader.fileloader_distributor(5)
-    out_dir = Path(__file__).resolve().parent / "structured_recipes"
-
-    for doc in original_recipes:
-        await process_recipe(doc, out_dir)
+# 직렬 처리 버전 (문서를 하나씩 순서대로 처리)
+async def load_recipe_pdf_serial(limit: int = -1):
+    for p in original_pdf_paths(limit):
+        await structure_pdf_file(p)
 
 
 if __name__ == "__main__":

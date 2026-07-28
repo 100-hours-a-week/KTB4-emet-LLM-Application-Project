@@ -1,5 +1,6 @@
 from glob import glob
 import os
+import re
 from pathlib import Path
 import json
 
@@ -7,7 +8,13 @@ from langchain_core.documents import Document
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-source_dir = Path(__file__).resolve().parent / "recipes" / "original_recipes"
+source_dir = Path(__file__).resolve().parent.parent / "recipes" / "original_recipes"
+
+
+def _recipe_id_from_name(path: Path) -> str:
+    """파일명에서 레시피 ID 추출 ('12345_제목.pdf' -> '12345', 패턴이 없으면 파일명 전체)"""
+    match = re.match(r"(\d+)_", path.stem)
+    return match.group(1) if match else path.stem
 
 
 def json_loader(json_path_list, limit=-1):
@@ -24,11 +31,13 @@ def json_loader(json_path_list, limit=-1):
         with open(p, "r", encoding="utf-8") as f:
             data = json.load(f)
 
+        recipe_id = str(data.get("recipe_id") or data.get("seq") or p.stem)
         doc = Document(
             page_content=json.dumps(data, ensure_ascii=False),
             metadata={
                 "source": str(p),
-                "seq": data.get("seq", p.stem),
+                "seq": recipe_id,
+                "doc_id": f"json:{recipe_id}",  # VDB 중복 방지용 고유 ID (레시피 ID 기반)
             },
         )
 
@@ -48,6 +57,7 @@ def pdf_loader(pdf_path_list, limit=-1):
     for p in pdf_path_list:
         loader = PyPDFLoader(p)
         pages = loader.load()
+        recipe_id = _recipe_id_from_name(Path(p))
 
         for doc in pages:
             # limit 도달하면 더 이상 문서를 추가하지 않음
@@ -55,6 +65,8 @@ def pdf_loader(pdf_path_list, limit=-1):
                 break
 
             page_num = doc.metadata["page"] + 1
+            # VDB 중복 방지용 고유 ID: 레시피 ID + 페이지 (한 PDF가 여러 페이지 문서가 되므로)
+            doc.metadata["doc_id"] = f"pdf:{recipe_id}:p{page_num}"
             total_pages += 1  # 페이지 번호가 아니라 페이지 개수를 셈
             preview = doc.page_content[:40].replace("\n", " ")
             print(f"[페이지 {page_num}] {preview}...")
@@ -72,17 +84,10 @@ def pdf_loader(pdf_path_list, limit=-1):
 def fileloader_distributor(limit=-1):
     processed_dir = Path(__file__).resolve().parent.parent / "recipes" / "structured_recipes"
 
-    pdf_path_list = sorted(source_dir.glob("*.pdf"))
-    pdf_docs = pdf_loader(pdf_path_list, limit=limit)
-
     json_path_list = sorted(processed_dir.glob("*.json"))
     json_docs = json_loader(json_path_list, limit=limit)
 
-    document = []
-    document.extend(pdf_docs)
-    document.extend(json_docs)
-
-    return document
+    return json_docs
 
 
 # 수정 필요
@@ -91,12 +96,13 @@ def model_loader():
 
 def llm_loader():
     provider = os.getenv("LLM_PROVIDER", "google").lower()
-    print(f"LLM Provider: {provider}")
-    if provider == "ollama":
-        from langchain_ollama import ChatOllama
-        return ChatOllama(
-            model=os.getenv("OLLAMA_MODEL", "gemma4:e2b-mlx"),
-            base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
+    #print(f"LLM Provider: {provider}")
+    if provider == "claude":
+        from langchain_anthropic import ChatAnthropic
+        # API 키는 ANTHROPIC_API_KEY 환경변수에서 자동으로 읽음
+        return ChatAnthropic(
+            model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
+            max_tokens=16000,
         )
     # 수정 필요
     elif provider == "self":

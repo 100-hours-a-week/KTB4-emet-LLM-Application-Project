@@ -8,30 +8,35 @@
 import asyncio
 import json
 import sys
-import time
 import urllib.parse
+from pathlib import Path
 
 from playwright.async_api import async_playwright
 
 BASE = "https://www.10000recipe.com"
-OUTPUT_FILE = "recipe_ids.json"
+OUTPUT_FILE = Path(__file__).resolve().parent / "recipe_ids.json"
 
 DELAY_SEC = 2.5  # 페이지 간 딜레이 (서버 부하 최소화)
 
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0 Safari/537.36 (personal-research-script)"
+)
 
-async def collect(query: str, max_pages: int):
+
+async def collect_pages(query: str, max_pages: int):
+    """페이지 단위로 새로 발견한 레시피 ID 집합을 yield하는 async generator.
+
+    파이프라인이 ID 발견 즉시 다음 단계로 넘길 수 있도록 페이지마다 yield하고,
+    순회가 끝나면 전체 ID를 OUTPUT_FILE에 저장한다.
+    """
     encoded_q = urllib.parse.quote(query)
     recipe_ids = set()
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page(
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0 Safari/537.36 (personal-research-script)"
-            )
-        )
+        page = await browser.new_page(user_agent=USER_AGENT)
 
         for page_num in range(1, max_pages + 1):
             url = f"{BASE}/recipe/list.html?q={encoded_q}&page={page_num}"
@@ -60,8 +65,12 @@ async def collect(query: str, max_pages: int):
                 if part.isdigit():
                     new_ids.add(part)
 
-            print(f"  -> {len(new_ids)}개 발견 (누적 {len(recipe_ids) + len(new_ids)}개)")
-            recipe_ids.update(new_ids)
+            fresh = new_ids - recipe_ids
+            recipe_ids.update(fresh)
+            print(f"  -> 신규 {len(fresh)}개 발견 (누적 {len(recipe_ids)}개)")
+
+            if fresh:
+                yield fresh
 
             await asyncio.sleep(DELAY_SEC)
 
@@ -70,7 +79,12 @@ async def collect(query: str, max_pages: int):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(sorted(recipe_ids), f, ensure_ascii=False, indent=2)
 
-    print(f"\n총 {len(recipe_ids)}개 레시피 ID -> {OUTPUT_FILE} 저장 완료")
+    print(f"\n총 {len(recipe_ids)}개 레시피 ID -> {OUTPUT_FILE.name} 저장 완료")
+
+
+async def collect(query: str, max_pages: int):
+    async for _ in collect_pages(query, max_pages):
+        pass
 
 
 if __name__ == "__main__":

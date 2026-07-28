@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from glob import glob
 import os
-
+import uuid
 from fastapi import FastAPI
 from pydantic import BaseModel
 
@@ -20,19 +20,24 @@ app = FastAPI(lifespan=lifespan)
 
 class QueryRequest(BaseModel):
     question: str
-
+    thread_id: str | None = None
 
 class QueryResponse(BaseModel):
     answer: str
+    thread_id: str
 
 
 @app.post("/query", response_model=QueryResponse)
 async def query(req: QueryRequest):
     from IPython.display import Image, display
 
-    
-    answer = await app.state.rag.ainvoke({"query": req.question})
-    print("\n\n대답\n\n")
-    print(f"answer:\n{answer}")
-    
-    return QueryResponse(answer=answer)
+    thread_id = req.thread_id or str(uuid.uuid4())   
+    result = await app.state.rag.ainvoke(
+        {
+            "query": req.question},
+            config={"configurable": {"thread_id": thread_id }},
+    )
+
+    ## ainvoke는 상태(dict) 전체를 반환하므로 경로별 결과 필드에서 답변을 꺼냄
+    answer = result.get("answer") or result.get("retrieved_recipes") or "결과가 없습니다."
+    return QueryResponse(answer=answer, thread_id=thread_id)
