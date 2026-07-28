@@ -11,18 +11,24 @@ class StructuredRecipe(BaseModel):
     )
     steps: str = Field(description="조리순서 (Tip 이후 제외, 줄바꿈으로 단계 구분)")
 
-
-class RecipeType(BaseModel):
-    recipe_type : Literal["generated_recipe", "add_ingredients_recipe", "rejected_recipe"] = Field(description="현재 레시피의 상태 분기점 판단 필드")
-    
+class IngredientFeasibility(BaseModel):
+    feasibility: Literal[
+        "directly_cookable", "needs_more_ingredients", "not_cookable"
+    ] = Field(description="현재 재료로 요리가 가능한지에 대한 판정 결과")
+ 
 
 ## 생성레시피: 정형화 레시피 포함 
-class GeneratedRecipe(BaseModel):
+class IngredientAnalysisResult(BaseModel):
 
-    recipe_type : Literal["generated_recipe", "add_ingredients_recipe", "rejected_recipe"] = Field(description="현재 레시피의 상태 분기점 판단 필드")
-    structured_recipe:StructuredRecipe | None = Field(default=None ,description="생성된 정형화 레시피 ")
-    needed_ingredients: List[str] | None = Field(default=None, description="추출된 재료를 제외한 추가 재료 리스트")
-
+    feasibility: Literal[
+        "directly_cookable", "needs_more_ingredients", "not_cookable"
+    ] = Field(description="현재 재료 기준 요리 가능 여부 판정")
+    structured_recipe: StructuredRecipe | None = Field(
+        default=None, description="생성된 정형화 레시피"
+    )
+    needed_ingredients: List[str] | None = Field(
+        default=None, description="추출된 재료를 제외한 추가 재료 리스트"
+    )
 class RecipeList(BaseModel):
     recipes: List[StructuredRecipe] = Field(description="추출된 레시피 목록 (빈 문서는 제외)")
 
@@ -40,10 +46,18 @@ class Ingredient(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def validator(cls,answer_ingredients):
-        if len(answer_ingredients) == 3 : 
-            return {"name":answer_ingredients[0], "amount":float(answer_ingredients[1]), "amount_unit":answer_ingredients[2]}
-
-        raise ValueError("...")
+        ## json_schema 구조화 출력은 dict 형태({"name": ..., "amount": ..., "amount_unit": ...})로 들어옴
+        if isinstance(answer_ingredients, dict):
+            return answer_ingredients
+        ## 구버전(리스트 프롬프트) 형태 [재료명, 양, 단위]는 dict로 변환
+        if isinstance(answer_ingredients, (list, tuple)) and len(answer_ingredients) == 3:
+            name, amount, unit = answer_ingredients
+            return {
+                "name": name,
+                "amount": float(amount) if amount not in (None, "") else None,
+                "amount_unit": unit,
+            }
+        raise ValueError("재료는 dict 또는 [재료명, 양, 단위] 형태여야 합니다")
 
     
 
