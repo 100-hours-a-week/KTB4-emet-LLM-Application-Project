@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from glob import glob
+from pathlib import Path
 import os
 import uuid
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import graph 
@@ -16,6 +18,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+@app.get("/")
+async def index():
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 class QueryRequest(BaseModel):
