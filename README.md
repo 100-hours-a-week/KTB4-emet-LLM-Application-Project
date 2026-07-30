@@ -1,7 +1,7 @@
 # Title: LLM 기반 요리 레시피 추천 어플리케이션 (LLM-based Recipe Recommendation Application)
 
 ## Description
-  직접 요리재료를 입력하거나, 기록한 현재 보유 식재료를 기반으로 요리레시피를 추천하는 LLM 어플리케이션.
+  직접 요리재료를 입력하면 요리레시피를 추천하는 LLM 어플리케이션.
 
 ---
   
@@ -12,7 +12,8 @@
 - 추가 재료가 필요한 레시피 추천                                                <--- **executable/In development**
 - 추천한 레시피가 긍정적이면 새로운 레시피는 문서화 저장                              <--- **In development**
 - 자동 음식 레시피 문서 업데이트                                                <--- **In development**
-- 추천한 레시피가 부정적이면 해당 내용을 고려해서 재생성및 재탐색을 통한 레시피 재추천        <--- **In development**   
+- 추천한 레시피가 부정적이면 해당 내용을 고려해서 재생성및 재탐색을 통한 레시피 재추천        <--- **In development**
+-   
 ---
 
 ## Flowchart
