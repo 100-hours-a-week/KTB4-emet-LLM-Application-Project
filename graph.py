@@ -51,7 +51,10 @@ def build():
  
     graph_test.add_node("query_analysis", analysis.query_analysis)
     graph_test.add_node("retreiver_recipes", recipes.retreiver_recipes)
+    graph_test.add_node("reset_recipe_options", ingredients.reset_recipe_options)
     graph_test.add_node("extract_ingredient", ingredients.extract_ingredient)
+    graph_test.add_node("extract_ingredient_update", ingredients.extract_ingredient_update)
+    graph_test.add_node("apply_ingredient_modification", ingredients.apply_ingredient_modification)
     graph_test.add_node("ingredient_analysis", analysis.ingredient_analysis)
     graph_test.add_node("undeveloped", nodes.undeveloped)
     graph_test.add_node("preview_recipe_options", preview_recipes.preview_recipe_options)
@@ -73,14 +76,25 @@ def build():
         "query_analysis",
         analysis.conditional_query_type,
         path_map={
-            "extract_ingredient": "extract_ingredient",
+            "reset_recipe_options": "reset_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
             "select_recipe_option": "select_recipe_option",
             "undeveloped": "undeveloped",
         },
     )
- 
-    graph_test.add_edge("extract_ingredient", "ingredient_analysis")
+
+    ## 재료 변경 처리: 옵션 초기화 -> (첫 턴 추출 / 변경 diff 추출) -> 목록 반영
+    graph_test.add_conditional_edges(
+        "reset_recipe_options",
+        ingredients.conditional_has_previous,
+        path_map={
+            "extract_ingredient": "extract_ingredient",
+            "extract_ingredient_update": "extract_ingredient_update",
+        },
+    )
+    graph_test.add_edge("extract_ingredient", "apply_ingredient_modification")
+    graph_test.add_edge("extract_ingredient_update", "apply_ingredient_modification")
+    graph_test.add_edge("apply_ingredient_modification", "ingredient_analysis")
     graph_test.add_conditional_edges(
         "ingredient_analysis",
         analysis.conditional_ingredient_analysis,

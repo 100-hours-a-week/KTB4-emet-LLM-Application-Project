@@ -47,7 +47,7 @@ def conditional_query_type(state: OverrallState):
     print(f"query_type: {state["query_type"]}")
     print(state["query_type"])
     if state["query_type"] == "레시피 추천":
-        return "extract_ingredient"
+        return "reset_recipe_options"
     elif state["query_type"] == "레시피 선택":
             return "select_recipe_option"
     elif state["query_type"] == "레시피 반응":

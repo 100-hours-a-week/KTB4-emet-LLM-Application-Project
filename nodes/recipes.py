@@ -1,4 +1,3 @@
-import re
 import json
 
 from schems import (
@@ -73,48 +72,35 @@ async def retreiver_recipes(state: OverrallState):
     return {"retrieved_recipes": RecipeList(recipes=recipes)}
 
 
-## 사용자의 선택 발화에서 유효한 옵션을 찾아 매칭 (번호 -> 부분일치 -> LLM 순)
+## 사용자의 선택 발화를 LLM이 바로 판단해 번호로 매칭
+## (번호 정규식/부분일치 휴리스틱은 "2번 말고 3번" 같은 발화를 오판해서 제거)
 def select_recipe_option(state: OverrallState):
     print("\n현재노드: select_recipe_option\n")
 
     query = state["query"]
     options = preview_recipes.sort_options(state["recipe_options"])
 
-    ## 1) 번호로 골랐는지 우선 확인 (결정론적, LLM 호출 없음)
-    match = re.search(r"\d+", query)
-    if match:
-        idx = int(match.group()) - 1
-        if 0 <= idx < len(options):
-            print(f"번호 매칭 성공: {idx + 1}번")
-            return {"selected_option": options[idx]}
-
-    ## 2) 부분 일치 시도 (오타 없는 경우 LLM 호출 없이 빠르게 처리)
-    candidates = [
-        opt for opt in options
-        if opt.title in query or query in opt.title
-    ]
-    if len(candidates) == 1:
-        print(f"부분 일치 성공: {candidates[0].title}")
-        return {"selected_option": candidates[0]}
-
-    ## 3) 오타/표현 차이 대응을 위한 LLM 매칭 (앞 두 단계가 실패했을 때만 호출)
-    option_titles = "\n".join(f"- {opt.title}" for opt in options)
+    ## present_recipe_options가 보여준 번호와 동일한 순서로 번호를 매겨 전달
+    option_titles = "\n".join(
+        f"{idx}. {opt.title}" for idx, opt in enumerate(options, start=1)
+    )
     query_option_match = recipes_prompts.option_match_prompt.format(
         option_titles=option_titles, query=query
     )
 
     result = llm.invoke_structured(OptionMatchResult, query_option_match, fallback=None)
-    if result is None:
+    if result is None or result.selected_number is None:
+        print("매칭 실패: 무효 처리")
         return invalid_response(options)
 
-    if result.matched_title:
-        for opt in options:
-            if opt.title.strip() == result.matched_title.strip():
-                print(f"LLM 매칭 성공: {opt.title}")
-                return {"selected_option": opt}
+    idx = result.selected_number - 1
+    if not (0 <= idx < len(options)):
+        print(f"범위 밖 번호: {result.selected_number}")
+        return invalid_response(options)
 
-    print("매칭 실패: 무효 처리")
-    return invalid_response(options)
+    selected = options[idx]
+    print(f"LLM 매칭 성공: {result.selected_number}번 {selected.title}")
+    return {"selected_option": selected}
 
 
 ## 다음 노드 선택

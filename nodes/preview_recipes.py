@@ -3,6 +3,7 @@ from typing import List, Set
 from langchain_core.messages import HumanMessage, AIMessage
 
 from schems import StructuredRecipe, RecipeList, RecipeOption, RecipeOptionList
+from ingredient_synonyms import is_ingredient_satisfied
 
 import llm
 from templates import preview_recipes_prompts
@@ -22,10 +23,14 @@ def compute_missing_ingredients(
     user_ingredient_names: Set[str],
 ) -> List[str]:
     """
-    레시피 재료명 집합에서 사용자 재료명 집합을 뺀 차집합(=부족한 재료)을 계산.
-    이름이 정확히 일치해야 "있다"고 판단됨 (예: "대파" != "파").
+    레시피 재료명 중 사용자 재료로 충족되지 않는 것(=부족한 재료)을 계산.
+    동의어("계란"="달걀")와 상위/하위 개념(청사과 보유 -> 사과 요구 충족)을
+    ingredient_synonyms 사전 기준으로 반영한다.
     """
-    missing = recipe_ingredient_names - user_ingredient_names
+    missing = [
+        req for req in recipe_ingredient_names
+        if not any(is_ingredient_satisfied(req, owned) for owned in user_ingredient_names)
+    ]
     return sorted(missing)
 
 

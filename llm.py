@@ -25,7 +25,7 @@ def get_llm(provider: str | None = None, model: str | None = None):
 
     ## 자체학습모델("self" provider) 연동 예정 자리 -> self_model/ 폴더 참고
     return ChatGoogleGenerativeAI(
-        model=model or os.getenv("GOOGLE_MODEL", "gemini-2.5-flash"),
+        model=model or os.getenv("GOOGLE_MODEL", "gemini-flash-latest"),
         google_api_key=os.getenv("GOOGLE_API_KEY"),
     )
 

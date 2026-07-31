@@ -75,6 +75,25 @@ class IngredientList(BaseModel):
         """사용자/레시피의 재료 이름 (ingredients에서 자동 추출)"""
         return [ingredient.name for ingredient in self.ingredients]
 
+
+## extract_ingredient_update: 이번 발화가 기존 재료 목록에 가하는 변경(diff)
+## swap("대파 대신 토마토")도 remove_names=[대파] + add=[토마토]로 표현 가능
+class IngredientUpdate(BaseModel):
+    mode: Literal["diff", "replace"] = Field(
+        description=(
+            "diff: 기존 목록에 add/remove_names만 반영, "
+            "replace: 기존 목록을 무시하고 add로 통째로 교체"
+        )
+    )
+    add: List[Ingredient] = Field(
+        default_factory=list,
+        description="추가하거나 새로 언급된 보유 재료 목록",
+    )
+    remove_names: List[str] = Field(
+        default_factory=list,
+        description="기존 목록에서 뺄 재료명 목록",
+    )
+
 class RecipeOption(BaseModel):
     """사용자에게 제시할 예비 선택지 한 항목 (LLM 생성 / RAG 탐색 공통)."""
     title: str = Field(description="요리 이름")
@@ -98,12 +117,12 @@ class RecipeOptionList(BaseModel):
 
 
 class OptionMatchResult(BaseModel):
-    """사용자 발화가 옵션 목록 중 어떤 걸 가리키는지 LLM이 판단한 결과."""
-    matched_title: str | None = Field(
+    """사용자 발화가 옵션 목록 중 어떤 항목을 가리키는지 LLM이 판단한 결과."""
+    selected_number: int | None = Field(
         default=None,
         description=(
-            "사용자가 가리키는 요리와 정확히 일치하는 옵션 목록의 title 값. "
-            "오타나 표현 차이가 있어도 의미상 명확히 하나를 가리키면 그 title을 그대로 반환. "
-            "모호하거나 목록에 해당하는 요리가 없으면 반드시 null."
+            "사용자가 최종적으로 가리키는 옵션의 번호 (목록에 표시된 1부터 시작하는 번호). "
+            "'2번 말고 3번'처럼 부정 표현이 섞여 있으면 최종적으로 원하는 번호를 반환. "
+            "모호하거나 목록에 없는 요리를 말하면 반드시 null."
         ),
     )
