@@ -29,7 +29,7 @@ KTB 4기 개인 프로젝트
 | LLM 기반 정형화 | 스크랩 문서를 LLM으로 검토·구조화 | 별도 플로우차트 예정 | 완료 |
 | Structured Parser | 정형화 결과를 고정 스키마 JSON으로 변환 | 별도 플로우차트 예정 | 완료 |
 | ChromaDB 임베딩 저장 | 정형화 문서를 임베딩 후 저장 | 별도 플로우차트 예정 | 완료 |
-| 벡터스토어 소스 정합성 검증 | 원본 PDF와 정형화 JSON이 함께 로드되어 벡터스토어에 섞여 들어가던 버그 발견 및 수정, 컬렉션 재구축 | `ingestion/loader.py` | 완료 |
+| 벡터스토어 소스 정합성 검증 | 원본 PDF와 정형화 JSON이 함께 로드되어 벡터스토어에 섞여 들어가던 버그 발견 및 수정, 컬렉션 재구축 | `rag/loader.py` | 완료 |
 | ChromaDB 중복 방지 | `seq`/`recipe_id` 기반 고정 ID + 차집합 방식 신규 문서 추가 | `VectorStore` | 완료 |
 
 ## Milestone 3: 품질 검증 로직
@@ -72,7 +72,7 @@ KTB 4기 개인 프로젝트
 | 실시간 self-reflect 평가 | 조건부 엣지 기반 실시간 평가 노드 | `node_evaluate` / `node_reflect` | 계획 단계 (Option 1, 의도적 보류) |
 | 하이브리드 평가 | 실시간 + 주기적 배치 평가 병행 | - | 계획 단계 (Option 3) |
 | 안전성 검증 레이어 | 이례적 재료 조합의 생성 결과 규칙 기반 검증 | 레시피 검토(확장 가능성) | 계획 단계 |
-| LLM Provider 마이그레이션 | Google Gemini ↔ Claude API 전환 대응 (`with_structured_output` strict schema 이슈 대응 포함) | `ingestion/loader.py` | 진행중 |
+| LLM Provider 마이그레이션 | Google Gemini ↔ Claude API 전환 대응 (`with_structured_output` strict schema 이슈 대응 포함) | `llm.py` | 진행중 |
 
 ---
 

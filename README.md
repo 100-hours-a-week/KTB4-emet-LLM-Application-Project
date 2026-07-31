@@ -23,34 +23,45 @@
 https://github.com/100-hours-a-week/KTB4-emet-LLM-Application-Project/blob/main/Roadmap.md   
 
 ---
-## component(update: 2026.07.23)   
+## component(update: 2026.07.31)   
 chatbot_project/   
 ├── app/   
-├── eval/   
-│   ├── __init__.py     
-│   ├── eval_data.py   
-│   └── evaluate.py  
+├── data_pipeline/  
+│   ├── collect_recipe_links.py  
+│   ├── recipe_ids.json  
+│   ├── recipe_pipeline.py  
+│   ├── save_recipes_pdf.py  
+│   ├── structured.py  
+│   ├── original_recipes/  
+│   └── structured_recipes/  
 ├── graph.png  
 ├── graph.py  
-├── ingestion/  
-│   ├── __init__.py  
-│   ├── loader.py  
-│   ├── splitter.py  
-│   ├── template.py  
-│   └── vectorstore.py  
+├── llm.py  
 ├── main.py  
 ├── model/  
 ├── nodes/  
 │   ├── __init__.py  
-│   ├── evaluate.py  
+│   ├── analysis.py  
+│   ├── ingredients.py  
 │   ├── nodes.py  
-│   └── recipe.py  
+│   ├── preview_recipes.py  
+│   └── recipes.py  
+├── rag/  
+│   ├── __init__.py  
+│   ├── loader.py  
+│   └── vectorstore.py  
+├── self_model/  
+│   └── loader.py  
+├── templates/  
+│   ├── __init__.py  
+│   ├── analysis_prompts.py  
+│   ├── ingredients_prompts.py  
+│   ├── preview_recipes_prompts.py  
+│   ├── prompts.py  
+│   └── recipes_prompts.py  
 ├── pyproject.toml  
-├── recipes/  
-│   ├── collect_recipe_links.py  
-│   ├── recipe_ids.json  
-│   ├── save_recipes_pdf.py  
-│   └── structured.py  
+├── schems.py  
+├── states.py  
 └── uv.lock   
 
 ---
