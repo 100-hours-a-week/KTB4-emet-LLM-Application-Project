@@ -1,4 +1,3 @@
-import os
 import re
 import json
 
@@ -11,7 +10,7 @@ from schems import (
 from pydantic import ValidationError
 
 import llm
-from templates import analysis_prompts, recipes_prompts
+from templates import recipes_prompts
 from states import OverrallState
 from . import preview_recipes
 
@@ -21,10 +20,8 @@ load_dotenv()
 ## graph.py에서 초기화된 retriever가 주입됩니다.
 retriever = None
 
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google")
 
-
-def _invalid_response(options):
+def invalid_response(options):
     lines = ["죄송해요, 목록에 있는 번호나 요리 이름으로 다시 말씀해 주세요.\n"]
     for idx, opt in enumerate(options, start=1):
         lines.append(f"{idx}. {opt.title}")
@@ -35,7 +32,7 @@ def _invalid_response(options):
 
 
 ## fetch_rag_recipe, finalize_recipe가 공통으로 쓰는 헬퍼이므로 파일 상단에 둠
-def _format_ingredient(item):
+def format_ingredient(item):
     name, amount, unit = item
     if amount == -1:
         return name
@@ -101,20 +98,14 @@ def select_recipe_option(state: OverrallState):
         return {"selected_option": candidates[0]}
 
     ## 3) 오타/표현 차이 대응을 위한 LLM 매칭 (앞 두 단계가 실패했을 때만 호출)
-    llm_model = llm.llm_loader()
-    option_match_model = llm_model.with_structured_output(
-        OptionMatchResult, method="json_schema"
-    )
     option_titles = "\n".join(f"- {opt.title}" for opt in options)
     query_option_match = recipes_prompts.option_match_prompt.format(
         option_titles=option_titles, query=query
     )
 
-    try:
-        result = option_match_model.invoke(query_option_match)
-    except ValidationError as e:
-        print(f"검증 실패: {e}")
-        return _invalid_response(options)
+    result = llm.invoke_structured(OptionMatchResult, query_option_match, fallback=None)
+    if result is None:
+        return invalid_response(options)
 
     if result.matched_title:
         for opt in options:
@@ -123,7 +114,7 @@ def select_recipe_option(state: OverrallState):
                 return {"selected_option": opt}
 
     print("매칭 실패: 무효 처리")
-    return _invalid_response(options)
+    return invalid_response(options)
 
 
 ## 다음 노드 선택
@@ -160,7 +151,7 @@ def fetch_rag_recipe(state: OverrallState):
             "structured_recipe": None,
         }
 
-    ingredients_str = ", ".join(_format_ingredient(item) for item in matched.ingredients)
+    ingredients_str = ", ".join(format_ingredient(item) for item in matched.ingredients)
     answer = (
         f"[{matched.title}] ({matched.servings}인분 / {matched.cook_time}분)\n\n"
         f"재료: {ingredients_str}\n\n"
@@ -175,26 +166,20 @@ def finalize_recipe(state: OverrallState):
     print("\n현재노드: finalize_recipe\n")
 
     selected = state["selected_option"]
-    llm_model = llm.llm_loader()
-    finalize_recipe_model = llm_model.with_structured_output(
-        StructuredRecipe, method="json_schema"
-    )
-    query_finalize_recipe = recipes_prompts.finalize_recipe_from_preview_prompt.format(
+    query_finalize_recipe = recipes_prompts.finalize_from_preview_prompt.format(
         ingredients=state["ingredient_list"].ingredients_name,
         selected_title=selected.title,
         needed_ingredients=selected.needed_ingredients,
     )
 
-    try:
-        result = finalize_recipe_model.invoke(query_finalize_recipe)
-    except ValidationError as e:
-        print(f"검증 실패: {e}")
+    result = llm.invoke_structured(StructuredRecipe, query_finalize_recipe, fallback=None)
+    if result is None:
         return {
             "answer": "죄송해요, 레시피를 완성하는 데 문제가 생겼어요. 다시 시도해 주세요.",
             "structured_recipe": None,
         }
 
-    ingredients_str = ", ".join(_format_ingredient(item) for item in result.ingredients)
+    ingredients_str = ", ".join(format_ingredient(item) for item in result.ingredients)
     answer = (
         f"[{result.title}] ({result.servings}인분 / {result.cook_time}분)\n\n"
         f"재료: {ingredients_str}\n\n"
@@ -212,33 +197,18 @@ def generate_recipe(state: OverrallState):
     ## query_analysis -> now -> node_llm -> confirm_ingrediant
 
     ## undeveloped(): query -> ingrediant
-    ## query_reipes = recipes_prompts.generate_recipe_prompt.format(query=state["query"], ingrediant=state["ingrediant"])
-    getnerate_recipe_model = llm.llm_loader()
+    ## query_reipes = recipes_prompts.generate_prompt.format(query=state["query"], ingrediant=state["ingrediant"])
+    getnerate_recipe_model = llm.get_llm()
     ingredients = state["ingredient_list"].ingredients_name
-    query_getnerate_recipe = recipes_prompts.generate_recipe_prompt.format(ingredients=ingredients)
+    query_getnerate_recipe = recipes_prompts.generate_prompt.format(ingredients=ingredients)
 
     try:
         result = getnerate_recipe_model.invoke(query_getnerate_recipe)
         print(type(result), result)
-    except ValueError as e:
+    except Exception as e:
         print(f"생성 실패: {e}")
-        result = IngredientList(is_empty=True, ingredients=[])
+        result = IngredientList(ingredients=[])
 
     return {"query": query_getnerate_recipe}
 
 
-## 레시피 정형화()
-def recipe2strutured(state: OverrallState):
-    # 쿼리 내용을 기준으로 쿼리 타입을 분석
-    print(LLM_PROVIDER)
-    print("현재노드: recipe2strutured")
-
-    llm_model = llm.llm_loader()
-    recipe2strutured_model = llm_model.with_structured_output(IngredientList, method="json_schema" )
-    strutured_recipe = analysis_prompts.query_analysis_prompt.format(query=state["query"])
-
-    result = recipe2strutured_model.invoke(strutured_recipe)
-
-    print(type(result), result)
-
-    return {"ingrdeient": result}

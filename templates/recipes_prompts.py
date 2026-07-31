@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 ## 레시피 정형화 프롬프트
-recipe2strutured_prompt = ChatPromptTemplate.from_messages([
+strutured_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "RAG 문서 전처리를 아래와 같이 요청할께. 문서를 json으로 분리한다 생각하고 만들어줘\n"
      "0. 정수형데이터를 요청했는데 실수형인경우 반올림해줘\n"
@@ -46,7 +46,7 @@ recipe2strutured_prompt = ChatPromptTemplate.from_messages([
 
 
 ## 재료 기반 레시피 생성 프롬프트
-generate_recipe_prompt = ChatPromptTemplate.from_messages([
+generate_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사 입니다."
      "주어진 재료들로만 요리가 가능한 가능한지 먼저 확인해주세요."
@@ -81,7 +81,7 @@ option_match_prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-finalize_recipe_from_preview_prompt = ChatPromptTemplate.from_messages([
+finalize_from_preview_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사 입니다."
      "사용자는 이미 제시된 예비 요리 후보 중 하나를 선택했고, 그 요리 이름과 추가 재료 목록을 승인했습니다."

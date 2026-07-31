@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 ## 재료 추출 프롬프트 -> 개발중(레시피 정형화 프롬프트 이용)
-extract_ingredient_prompt = ChatPromptTemplate.from_messages([
+extract_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사입니다. "
      "먼저, 사용자의 질의에서 요청한 요리 재료만 추출해주세요.\n "
@@ -17,7 +17,7 @@ extract_ingredient_prompt = ChatPromptTemplate.from_messages([
      "| 필드명 | 타입 | 설명 |\n"
      "|---|---|---|\n"
      "| is_empty |  bool | 재료의 존재 여부  |\n"
-     "| ingredients_type | 리스트 | 재료명 |\n"
+     "| ingredients_name | 리스트 | 재료명 |\n"
      "| ingredients | 2차원 리스트 [[문자열, 실수, 문자열], ...] | 재료명 / 양 / 단위 (재료+양념 통합) |\n"
      "\n"
      "## 예시\n"
@@ -37,7 +37,7 @@ extract_ingredient_prompt = ChatPromptTemplate.from_messages([
 ])
 
 
-judge_ingredient_action_prompt = ChatPromptTemplate.from_messages([
+judge_and_action_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 레스토랑 웨이터 입니다."
      "사용자가 재료에 따른 레시피 추천을 요청했습니다."

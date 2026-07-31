@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 # 1) 예비 선택지 제시 (재료 부족 시, 요리 이름 + 필요 추가재료만 먼저 보여줌)
-preview_recipe_options_prompt = ChatPromptTemplate.from_messages([
+options_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사 입니다."
      "주어진 재료만으로는 레시피를 만들기 부족한 상황이며, 아직 완전한 레시피를 만들 필요는 없습니다."

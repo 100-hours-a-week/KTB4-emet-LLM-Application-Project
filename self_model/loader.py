@@ -8,7 +8,7 @@ def model_loader():
     return 0
 
 
-## llm.py의 llm_loader()에 있던 "self" provider 분기 원본.
+## llm.py의 get_llm()에 있던 "self" provider 분기 원본.
 ## 자체 모델 연동이 확정되면 아래 분기를 llm.py로 복원하고 model_loader를 구현합니다.
 #
 # elif provider == "self":

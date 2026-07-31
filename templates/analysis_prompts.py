@@ -2,7 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 
 ## 질의 분석 프롬프트
-query_analysis_prompt = ChatPromptTemplate.from_messages([
+query_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 질의 분석가입니다. 사용자의 질의를 분석하고 어떤 주제인지 알려주세요."
      "사용자의 질의를 주어집니다. 반드시 아래의 타입중 하나를 선택해서 답해주세요. "
@@ -24,7 +24,7 @@ query_analysis_prompt = ChatPromptTemplate.from_messages([
 
 
 ## 재료 기반 레시피 생성 전 레시피 생성 가능 여부 판단
-ingredient_analysis_prompt = ChatPromptTemplate.from_messages([
+ingredient_prompt = ChatPromptTemplate.from_messages([
     ("system",
      "당신은 요리사 입니다."
      "주어진 재료들로만 요리가 가능한 가능한지 먼저 확인해주세요.\n"

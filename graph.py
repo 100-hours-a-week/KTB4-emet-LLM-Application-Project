@@ -113,24 +113,3 @@ def build():
  
     checkpointer = MemorySaver()
     return graph_test.compile(checkpointer=checkpointer)
-    
-
-async def run_graph():
-    #graph = build_generate()
-    graph = build()
-    ## 스트리밍으로 변경예정
-
-    result = await graph.ainvoke({
-        "type": "RECIPE",
-        "query": "",
-        "messages": [],
-        "loop": 0
-        })
-    #print(result["query"])
-    #print(result["answer"])
-    #print(result["messages"])
-
-
-##if __name__ == "__main__":
-
-  ##  asyncio.run(run_graph())

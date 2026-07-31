@@ -29,7 +29,7 @@ ORIGINAL_DIR = Path(__file__).resolve().parent / "original_recipes"
 STRUCTURED_DIR = Path(__file__).resolve().parent / "structured_recipes"
 
 
-class StructuredRecipe(BaseModel):
+class PipelineRecipe(BaseModel):
     recipe_id: str | None = Field(default=None, description="레시피 고유 id (원본 파일명의 '_' 앞 숫자) 또는 생성된 레시피는 앞에G가 붙음")
     title: str = Field(description="요리 이름 (부제의 재료가 있으면 '재료 요리이름' 형태)")
     servings: int = Field(description="분량 (인분)")
@@ -40,15 +40,14 @@ class StructuredRecipe(BaseModel):
     steps: str = Field(description="조리순서 (Tip 이후 제외, 줄바꿈으로 단계 구분)")
 
 
-async def recipe2strutured(recipe_text: str, max_retries: int = 2) -> StructuredRecipe:
-    llm_model = llm.llm_loader()
-    recipe2strutured_model = llm_model.with_structured_output(StructuredRecipe, method="json_schema")
-    query_strutured_recipe = recipes_prompts.recipe2strutured_prompt.format(recipe=recipe_text)
+async def recipe2strutured(recipe_text: str, max_retries: int = 2) -> PipelineRecipe:
+    query_strutured_recipe = recipes_prompts.strutured_prompt.format(recipe=recipe_text)
 
     last_error = None
     for attempt in range(max_retries + 1):
         try:
-            return await recipe2strutured_model.ainvoke(query_strutured_recipe)
+            ## fallback 미지정 -> 실패 시 예외 전파, 여기 재시도 루프에서 잡아서 반복
+            return await llm.ainvoke_structured(PipelineRecipe, query_strutured_recipe)
         except Exception as e:
             last_error = e
             print(f"[재시도 {attempt + 1}/{max_retries}] {e}")
@@ -62,7 +61,7 @@ def extract_recipe_id(source_path: str) -> str:
     return match.group(1) if match else stem
 
 
-def save_recipe_json(recipe: StructuredRecipe, out_dir: Path) -> None:
+def save_recipe_json(recipe: PipelineRecipe, out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     file_path = out_dir / f"{recipe.recipe_id}.json"
     with file_path.open("w", encoding="utf-8") as f:

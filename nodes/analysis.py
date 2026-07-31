@@ -1,5 +1,4 @@
 from schems import QueryType, IngredientAnalysisResult, IngredientFeasibility
-from pydantic import ValidationError
 
 import llm
 from templates import analysis_prompts
@@ -10,7 +9,7 @@ load_dotenv()
 
 
 ## 최근 대화 몇 턴을 프롬프트에 넣을 텍스트로 정리
-def _format_recent_context(messages, max_turns=3):
+def format_recent_context(messages, max_turns=3):
     if not messages:
         return "(이전 대화 없음)"
 
@@ -26,16 +25,16 @@ def _format_recent_context(messages, max_turns=3):
 ## 질의 분석
 def query_analysis(state: OverrallState):
     print("현재노드: query_analysis")
-    llm_model = llm.llm_loader()
-    query_analysis_model = llm_model.with_structured_output(QueryType, method="json_schema")
-
-    recent_context = _format_recent_context(state.get("messages", []))
-    query_analysis_query = analysis_prompts.query_analysis_prompt.format(
+    recent_context = format_recent_context(state.get("messages", []))
+    query_analysis_query = analysis_prompts.query_prompt.format(
         query=state["query"],
         recent_context=recent_context,
     )
 
-    result = query_analysis_model.invoke(query_analysis_query)
+    ## 분류 실패 시 "NONE"으로 폴백 -> conditional_query_type에서 undeveloped로 라우팅됨
+    result = llm.invoke_structured(
+        QueryType, query_analysis_query, fallback=QueryType(type="NONE")
+    )
 
     print(type(result), result)
 
@@ -65,29 +64,19 @@ def conditional_query_type(state: OverrallState):
 def ingredient_analysis(state: OverrallState):
     print("현재노드: ingredient_analysis")
 
-    llm_model = llm.llm_loader()
-    ingredient_analysis_model = llm_model.with_structured_output(
-        IngredientFeasibility, method="json_schema"
-    )
-    query_ingredient_analysis = analysis_prompts.ingredient_analysis_prompt.format(
+    query_ingredient_analysis = analysis_prompts.ingredient_prompt.format(
         ingredients=state["ingredient_list"].ingredients_name
     )
 
-    try:
-        result = ingredient_analysis_model.invoke(query_ingredient_analysis)
-        ingredient_analysis_result = IngredientAnalysisResult(
-            feasibility=result.feasibility,
-            structured_recipe=None,
-            needed_ingredients=None,
-        )
-    except ValidationError as e:
-        print(f"검증 실패: {e}")
-        ## 판정 실패 시 안전하게 "생성 불가"로 처리 (undeveloped로 라우팅됨)
-        ingredient_analysis_result = IngredientAnalysisResult(
-            feasibility="not_cookable",
-            structured_recipe=None,
-            needed_ingredients=None,
-        )
+    ## 판정 실패 시 안전하게 "생성 불가"로 처리 (undeveloped로 라우팅됨)
+    result = llm.invoke_structured(
+        IngredientFeasibility, query_ingredient_analysis, fallback=None
+    )
+    ingredient_analysis_result = IngredientAnalysisResult(
+        feasibility=result.feasibility if result else "not_cookable",
+        structured_recipe=None,
+        needed_ingredients=None,
+    )
 
     print(f"\n\ningredient_analysis_result: {ingredient_analysis_result}\n\n")
 

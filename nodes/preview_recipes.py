@@ -29,7 +29,7 @@ def compute_missing_ingredients(
     return sorted(missing)
 
 
-def _extract_ingredient_names(recipe: StructuredRecipe) -> Set[str]:
+def extract_ingredient_names(recipe: StructuredRecipe) -> Set[str]:
     """
     StructuredRecipe.ingredients ([name, amount, unit] 2D list)에서
     이름(0번 인덱스)만 뽑아 집합으로 반환.
@@ -44,7 +44,7 @@ def _extract_ingredient_names(recipe: StructuredRecipe) -> Set[str]:
     return names
 
 
-def _build_options_from_recipes(
+def build_options_from_recipes(
     retrieved_recipes: RecipeList,
     user_ingredient_names: List[str],
 ) -> List[RecipeOption]:
@@ -56,7 +56,7 @@ def _build_options_from_recipes(
     options: List[RecipeOption] = []
 
     for recipe in retrieved_recipes.recipes:
-        recipe_names_set = _extract_ingredient_names(recipe)
+        recipe_names_set = extract_ingredient_names(recipe)
 
         if not recipe_names_set:
             continue
@@ -79,20 +79,14 @@ def _build_options_from_recipes(
 def preview_recipe_options(state: OverrallState):
     print("\n현재노드: preview_recipe_options\n")
 
-    llm_model = llm.llm_loader()
-    preview_recipe_options_model = llm_model.with_structured_output(RecipeOptionList, method="json_schema" )
-    query_preview_recipe = preview_recipes_prompts.preview_recipe_options_prompt.format(
+    query_preview_recipe = preview_recipes_prompts.options_prompt.format(
         option_count= 1,
         ingredients=state["ingredient_list"].ingredients_name
         )
 
-    try:
-        result = preview_recipe_options_model.invoke(query_preview_recipe)
-        print(f"type:{type(result)}")
-
-    except ValueError as e:
-        print(f"검증 실패: {e}")
-        result = RecipeOptionList(options=[])
+    result = llm.invoke_structured(
+        RecipeOptionList, query_preview_recipe, fallback=RecipeOptionList(options=[])
+    )
 
     print(f"\n\nrecipe_options: {result}\n\n")
 
@@ -103,7 +97,7 @@ def preview_recipe_options(state: OverrallState):
 def build_rag_recipe_options(state: OverrallState):
     print("\n현재노드: build_rag_recipe_options\n")
 
-    recipe_options = _build_options_from_recipes(
+    recipe_options = build_options_from_recipes(
         state["retrieved_recipes"],
         state["ingredient_list"].ingredients_name,
     )

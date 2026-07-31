@@ -25,14 +25,19 @@ def format_docs(ds):
 
 async def node_llm(state: OverrallState):
 
-    llm_model = llm.llm_loader()
+    llm_model = llm.get_llm()
     human_msg = HumanMessage(content=state["query"])
     full_messages = state["messages"] + [human_msg]
 
-    answer = ""
-    async for chunk in llm_model.astream(full_messages):
-        print(chunk.content, end="", flush=True)
-        answer += chunk.content
+    ## 스트리밍 실패 시 사과 문구로 폴백 (부분 응답은 버림)
+    try:
+        answer = ""
+        async for chunk in llm_model.astream(full_messages):
+            print(chunk.content, end="", flush=True)
+            answer += chunk.content
+    except Exception as e:
+        print(f"[node_llm] 호출 실패: {e}")
+        answer = "죄송합니다. 답변 생성 중 문제가 발생했어요. 다시 시도해 주세요."
 
     ai_msg = AIMessage(content=answer)
 
