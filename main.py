@@ -8,13 +8,21 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import graph 
+from rag.config import get_db_path
+from rag.vectorstore import sync_vdb_from_s3
+
+from dotenv import load_dotenv
+load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # FastAPI 앱 초기화 시점에 인덱싱 + RAG 체인 구성
+    ## 그래프 빌드(=VDB 로드) 전에 S3에서 최신 VDB를 먼저 받아옴
+    sync_vdb_from_s3(get_db_path())
+
     app.state.rag = graph.build()
     yield
     app.state.rag.get_graph().draw_mermaid_png(output_file_path="graph.png")
+
 
 
 app = FastAPI(lifespan=lifespan)

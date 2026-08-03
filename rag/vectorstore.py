@@ -1,16 +1,19 @@
 from langchain_chroma import Chroma
 import os
-
+from pathlib import Path
 class VectorStore:
 
     VDB: Chroma
 
-    def __init__(self, split_docs, embedding, collection_name,  persist_directory):
+    def __init__(self, split_docs, embedding, collection_name, persist_directory):
         if self.is_exsists(persist_directory):
             self.load_local_vdb(embedding, collection_name, persist_directory)
             self.add_new_docs(split_docs)
-        else :
-            self.create_vdb(split_docs, embedding, collection_name,  persist_directory)
+        else:
+            self.create_vdb(split_docs, embedding, collection_name, persist_directory)
+
+        ## VDB 생성/갱신이 끝난 뒤 항상 S3 동기화 시도 (환경변수 없으면 자동 스킵)
+        self._sync_to_s3_if_configured(persist_directory)
 
     def is_exsists(self, persist_directory):
         if os.path.exists(persist_directory) and os.listdir(persist_directory):
@@ -80,3 +83,73 @@ class VectorStore:
 
         self.VDB.add_documents(fresh, ids=[self.doc_id(d) for d in fresh])
         print(f"VDB doc is updated. (신규 문서 {len(fresh)}개 추가)")
+
+    def _sync_to_s3_if_configured(self, persist_directory):
+        """VDB_S3_BUCKET 환경변수가 설정된 경우에만 S3로 동기화. 로컬 전용 실행 시엔 자동으로 건너뜀."""
+        bucket = os.getenv("VDB_S3_BUCKET")
+        if not bucket:
+            print("VDB_S3_BUCKET 미설정 -> S3 동기화 건너뜀")
+            return
+
+        prefix = os.getenv("VDB_S3_PREFIX", "vdb")
+        self._upload_directory_to_s3(persist_directory, bucket, prefix)
+
+    @staticmethod
+    def _upload_directory_to_s3(persist_directory, bucket, prefix):
+        import boto3
+
+        s3 = boto3.client("s3")
+        local_root = Path(persist_directory)
+        uploaded = 0
+
+        for file_path in local_root.rglob("*"):
+            if file_path.is_file():
+                relative_path = file_path.relative_to(local_root)
+                s3_key = f"{prefix}/{relative_path.as_posix()}"
+                s3.upload_file(str(file_path), bucket, s3_key)
+                uploaded += 1
+
+        print(f"VDB {uploaded}개 파일을 s3://{bucket}/{prefix} 에 동기화 완료")
+
+
+def sync_vdb_from_s3(persist_directory: str) -> None:
+    """
+    VDB_S3_BUCKET이 설정되어 있으면, S3의 최신 VDB를 persist_directory로 내려받는다.
+    앱 시작 시점(main.py의 lifespan)에서 호출해 EC2가 항상 최신 VDB를 쓰도록 보장.
+    미설정 시 조용히 건너뜀 (로컬 전용 개발 환경에서도 에러 없이 동작).
+    """
+    bucket = os.getenv("VDB_S3_BUCKET")
+    if not bucket:
+        print("VDB_S3_BUCKET 미설정 -> S3 동기화 건너뜀 (로컬 VDB 그대로 사용)")
+        return
+
+    prefix = os.getenv("VDB_S3_PREFIX", "vdb")
+    _download_directory_from_s3(persist_directory, bucket, prefix)
+
+
+def _download_directory_from_s3(persist_directory: str, bucket: str, prefix: str) -> None:
+    import boto3
+
+    s3 = boto3.client("s3")
+    local_root = Path(persist_directory)
+    local_root.mkdir(parents=True, exist_ok=True)
+
+    paginator = s3.get_paginator("list_objects_v2")
+    downloaded = 0
+
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            relative_path = key[len(prefix):].lstrip("/")
+            if not relative_path:
+                continue  ## prefix 자체가 폴더 마커로 찍힌 경우 건너뜀
+
+            local_path = local_root / relative_path
+            local_path.parent.mkdir(parents=True, exist_ok=True)
+            s3.download_file(bucket, key, str(local_path))
+            downloaded += 1
+
+    if downloaded == 0:
+        print(f"s3://{bucket}/{prefix} 에 파일이 없음 -> 로컬 VDB 유지")
+    else:
+        print(f"S3에서 {downloaded}개 파일을 {persist_directory} 로 다운로드 완료")
