@@ -40,6 +40,10 @@ class IngredientAnalysisResult(BaseModel):
     needed_ingredients: List[str] | None = Field(
         default=None, description="추출된 재료를 제외한 추가 재료 리스트"
     )
+    combination_warnings: List[str] | None = Field(
+        default=None,
+        description="궁합이 좋지 않다고 알려진 재료 조합 경고 메시지 목록. 없으면 None.",
+    )
     
 
 class RecipeList(BaseModel):

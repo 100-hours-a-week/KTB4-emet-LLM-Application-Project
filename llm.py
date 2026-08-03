@@ -1,4 +1,5 @@
 import os
+## 호출결과 캐싱해주는 데코레이터
 from functools import lru_cache
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -9,7 +10,7 @@ load_dotenv()
 ## fallback "미지정"과 "폴백값이 None인 경우"를 구분하기 위한 센티널
 NO_FALLBACK = object()
 
-## 호출결과 캐싱해주는 데코레이터
+## LLM 인스턴스 반환
 @lru_cache
 def get_llm(provider: str | None = None, model: str | None = None):
     """provider/model 조합별로 1회만 생성하고 재사용하는 LLM 팩토리."""
@@ -36,7 +37,7 @@ def get_llm(provider: str | None = None, model: str | None = None):
         google_api_key=os.getenv("GOOGLE_API_KEY"),
     )
 
-## 호출결과 캐싱해주는 데코레이터
+## 자동 전환 폴백 체인
 @lru_cache
 def get_llm_with_fallback(model: str | None = None):
     """
@@ -56,6 +57,7 @@ def invoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, mo
     fallback을 지정하면 (체인 전체가) 실패 시 그 값을 반환하고, 미지정 시 예외를 그대로 전파한다.
     """
     llm = get_llm_with_fallback(model) if provider is None else get_llm(provider, model)
+    # 각 모델마다 json 정형화 포멧 응답받도록 설정 
     structured_model = llm.with_structured_output(schema, method="json_schema")
 
     try:

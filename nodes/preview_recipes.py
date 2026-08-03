@@ -110,7 +110,7 @@ def build_rag_recipe_options(state: OverrallState):
 
 
 ## RAG 프리뷰레시피와 레시피 옵션의 프리퓨레시피 합쳐서 출력하는 노드
-def present_recipe_options (state:OverrallState):
+def present_recipe_options(state: OverrallState):
     print("\n현재노드: present_recipe_options\n")
 
     options = state["recipe_options"]
@@ -119,17 +119,27 @@ def present_recipe_options (state:OverrallState):
         return {
             "answer": "죄송해요, 지금 가진 재료로 제안할 수 있는 요리를 찾지 못했어요."
         }
+    ## 현재 보유 재료 목록
+    current_ingredients = state["ingredient_list"].ingredients_name
+    ingredients_line = f"📋 현재 재료: {', '.join(current_ingredients)}\n"
 
     ## 추가재료가 없는(=바로 만들 수 있는) 옵션을 우선 배치(추가재료가 적은순)
     sorted_options = sort_options(options)
 
-    lines = ["다음 중 어떤 요리로 하시겠어요?\n"]
+    lines = [ingredients_line, "다음 중 어떤 요리로 하시겠어요?\n"]
     for idx, option in enumerate(sorted_options, start=1):
         if option.needed_ingredients:
             needed_str = ", ".join(option.needed_ingredients)
             lines.append(f"{idx}. {option.title} (추가 재료 필요: {needed_str})")
         else:
             lines.append(f"{idx}. {option.title} (추가 재료 없음)")
+
+    ## 궁합이 안 좋다고 알려진 재료 조합이 있으면 안내 문구 추가
+    warnings = state["ingredient_analysis_result"].combination_warnings
+    if warnings:
+        lines.append("\n💡 참고로 아래 재료 조합은 궁합이 안 좋다고 알려져 있어요:")
+        for w in warnings:
+            lines.append(f"- {w}")
 
     answer = "\n".join(lines)
     print(f"\n\npresent_recipe_options answer:\n{answer}\n\n")

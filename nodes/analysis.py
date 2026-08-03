@@ -1,4 +1,5 @@
 from schems import QueryType, IngredientAnalysisResult, IngredientFeasibility
+from food_combination_matcher import check_all
 
 import llm
 from templates import analysis_prompts
@@ -59,29 +60,50 @@ def conditional_query_type(state: OverrallState):
 
     return "undeveloped"
 
+## 재료 조합 경고 메시지 리스트 생성 (LLM 호출 없음 — 순수 코드)
+def _build_combination_warnings(ingredient_names: list[str]) -> list[str] | None:
+    result = check_all(ingredient_names)
+    warnings = []
+
+    for item in result["pair_matches"]:
+        a, b = item["pair"]
+        warnings.append(f"{a}+{b}: {item['reason']} ({item['level']})")
+
+    for item in result["category_matches"]:
+        warnings.append(f"{', '.join(item['categories'])}: {item['reason']} ({item['level']})")
+
+    return warnings if warnings else None
 
 ## 추출한 재료 검토
 def ingredient_analysis(state: OverrallState):
     print("현재노드: ingredient_analysis")
 
+    ingredient_names = state["ingredient_list"].ingredients_name
+
     query_ingredient_analysis = analysis_prompts.ingredient_prompt.format(
-        ingredients=state["ingredient_list"].ingredients_name
+        ingredients=ingredient_names
     )
 
     ## 판정 실패 시 안전하게 "생성 불가"로 처리 (undeveloped로 라우팅됨)
     result = llm.invoke_structured(
         IngredientFeasibility, query_ingredient_analysis, fallback=None
     )
+
+    ## 궁합 체크는 feasibility 판정과 무관하게 항상 수행 (LLM 호출 없음, 순수 코드)
+    combination_warnings = _build_combination_warnings(ingredient_names)
+
     ingredient_analysis_result = IngredientAnalysisResult(
         feasibility=result.feasibility if result else "not_cookable",
         reason=result.reason if result else "재료 정보를 판정하는 중 문제가 발생했어요.",
         structured_recipe=None,
         needed_ingredients=None,
+        combination_warnings=combination_warnings,
     )
 
     print(f"\n\ningredient_analysis_result: {ingredient_analysis_result}\n\n")
 
     return {"ingredient_analysis_result": ingredient_analysis_result}
+
 
 
 ## 다음 노드 선택
