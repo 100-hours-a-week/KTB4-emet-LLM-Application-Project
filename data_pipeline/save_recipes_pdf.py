@@ -14,7 +14,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
 BASE = "https://www.10000recipe.com"
-INPUT_FILE = Path(__file__).resolve().parent / "recipe_ids.json"
+INPUT_FILE = Path(__file__).resolve().parent / "collected" / "recipe_ids.json"
 OUTPUT_DIR = Path(__file__).resolve().parent / "original_recipes"
 OUTPUT_DIR.mkdir(exist_ok=True)
 

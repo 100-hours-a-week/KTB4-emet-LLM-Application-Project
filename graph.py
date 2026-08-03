@@ -1,15 +1,14 @@
-import os
 import asyncio
 from pathlib import Path
 
 from dotenv import load_dotenv
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
 import rag.loader as loader
 import nodes.nodes as nodes
 from states import OverrallState
+from rag.config import COLLECTION_NAME, RETRIEVER_K, get_embedding, get_db_path
 from rag.vectorstore import VectorStore
 
 from nodes import analysis, ingredients, preview_recipes, recipes
@@ -19,21 +18,14 @@ from nodes import analysis, ingredients, preview_recipes, recipes
 PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-COLLECTION_NAME = "test_db3"
-RETRIEVER_K = 5
-
-embedding = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
-    google_api_key=os.environ["GOOGLE_API_KEY"],
-)
+embedding = get_embedding()
 
 
 def init_vdb(embedding, collection_name, k):
     document = loader.fileloader_distributor()
     ## 레시피 문서 1개를 문서 1개로 취급 (청킹 없음)
     splitted_docs = document
-    ## DB_PATH가 상대경로여도 실행 위치와 무관하게 프로젝트 루트 기준으로 고정
-    db_path = str((PROJECT_ROOT / os.getenv("DB_PATH", "data/vdb")).resolve())
+    db_path = get_db_path()
     print(db_path)
     vdb = VectorStore(splitted_docs, embedding, collection_name, db_path)
     retriever = vdb.retriever(k=k)

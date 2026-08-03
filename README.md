@@ -7,11 +7,14 @@
   
 ## Function
 ### Main
-- 현재 가진 재료를 기반으로 레시피 제작 및 검색 해서 레시피 추천                       <--- **executable/In development**
+- 현재 가진 재료를 기반으로 레시피 생성(LLM) 및 검색(RAG)을 병합해서 레시피 추천        <--- **executable**
 ### Sub
-- 추가 재료가 필요한 레시피 추천                                                <--- **executable/In development**
+- 추가 재료가 필요한 레시피 추천 (부족한 재료 목록 함께 제시)                        <--- **executable**
+- 대화 중 재료 추가/제거/교체("대파 대신 토마토로 변경해줘" 등) 반영 후 재추천          <--- **executable**
+- 재료명 동의어/상위-하위 개념 정규화(계란=달걀, 청사과⊂사과 등)로 매칭 정확도 향상        <--- **executable**
+- 번호/이름/부정 표현("2번 말고 3번")까지 이해하는 레시피 선택                       <--- **executable**
+- 레시피 데이터 수집 파이프라인(랜덤 키워드 수집 → PDF 저장 → LLM 구조화 → VDB 저장)      <--- **executable (수동 실행 + 서버 재시작 필요)**
 - 추천한 레시피가 긍정적이면 새로운 레시피는 문서화 저장                              <--- **In development**
-- 자동 음식 레시피 문서 업데이트                                                <--- **In development**
 - 추천한 레시피가 부정적이면 해당 내용을 고려해서 재생성및 재탐색을 통한 레시피 재추천        <--- **In development**   
 ---
 
@@ -23,19 +26,22 @@
 https://github.com/100-hours-a-week/KTB4-emet-LLM-Application-Project/blob/main/Roadmap.md   
 
 ---
-## component(update: 2026.07.31)   
+## component(update: 2026.08.02)   
 chatbot_project/   
 ├── app/   
 ├── data_pipeline/  
 │   ├── collect_recipe_links.py  
-│   ├── recipe_ids.json  
+│   ├── food_keywords.py  
 │   ├── recipe_pipeline.py  
 │   ├── save_recipes_pdf.py  
 │   ├── structured.py  
+│   ├── collected/  
+│   │   └── recipe_ids.json  
 │   ├── original_recipes/  
 │   └── structured_recipes/  
 ├── graph.png  
 ├── graph.py  
+├── ingredient_synonyms.py  
 ├── llm.py  
 ├── main.py  
 ├── model/  
@@ -48,6 +54,7 @@ chatbot_project/
 │   └── recipes.py  
 ├── rag/  
 │   ├── __init__.py  
+│   ├── config.py  
 │   ├── loader.py  
 │   └── vectorstore.py  
 ├── self_model/  
@@ -69,7 +76,7 @@ chatbot_project/
 ### Patch Version (0.x.N) — Development Stage
 - 0.x.1: alex's rag chain 
 - 0.x.2: refactoring              
-- 0.x.3: ranggraph   <--- **now processing**
+- 0.x.3: langgraph   <--- **now processing**
 ### Minor Version (0.N.x) — LLM Provider Branch
 - 0.0.x: adapt model free gen ai(geminai, ollama, etc)
 - 0.1.x: adapt model not free gen ai(claude)  <--- **now processing**
@@ -79,18 +86,50 @@ chatbot_project/
 
 ## 실행방법
 
+`.env`의 `LLM_PROVIDER`(`"google"` 또는 `"claude"`) 및 해당 API 키가 설정되어 있어야 합니다.
+백엔드(챗봇 서버)와 데이터 파이프라인(레시피 수집기)은 별개 프로세스입니다.
+
+### 백엔드 (챗봇 서버)
+
+FastAPI 서버 하나가 백엔드와 프런트(정적 페이지 서빙)를 모두 담당합니다.
+
+~~~bash
+cd chatbot_project
+uv run uvicorn main:app --reload --port 8000
 ~~~
-# .env에 ANTHROPIC_API_KEY 설정 필요 (LLM_PROVIDER="claude")
 
-# 1.before main query, evaluate RAG
-uv run evaluate.py
+### 프론트 (웹 UI)
 
-# 2-1.main query(single query)
-uv run graph.py
+별도 서버 없이, 백엔드가 `/`에서 `static/index.html`을 그대로 서빙합니다.
+백엔드를 먼저 띄운 뒤 브라우저로 접속하면 됩니다.
 
-# 2-2.main query by fastapi(not build)
-uv run uvicorn main:app --reload
 ~~~
+http://localhost:8000
+~~~
+
+`http://localhost:8000/docs`에서 FastAPI 자동 문서로 `/query`를 직접 호출해볼 수도 있습니다.
+
+> 멀티턴(재료 추가/제거/변경 등) 테스트 시, 첫 응답으로 받은 `thread_id`를 이후 요청에도
+> 그대로 실어 보내야 같은 대화로 이어집니다.
+
+### 데이터 파이프라인 (레시피 수집기)
+
+서버와 무관하게 독립 실행되는 스크립트로, 레시피를 수집(랜덤 키워드) → PDF 저장 →
+LLM 구조화 → 벡터스토어(VDB) 저장까지 연속으로 처리합니다. 자세한 옵션은
+[data_pipeline/PIPELINE_사용법.md](data_pipeline/PIPELINE_사용법.md) 참고.
+
+~~~bash
+cd chatbot_project
+
+# 소량 테스트 (20개 처리 후 종료)
+uv run python data_pipeline/recipe_pipeline.py --max-recipes 20
+
+# 무제한 연속 실행 (Ctrl+C로 중단)
+uv run python data_pipeline/recipe_pipeline.py
+~~~
+
+> 파이프라인이 저장한 새 레시피는 백엔드가 **재시작해야** 검색에 반영됩니다
+> (서버는 시작 시 1회만 VDB를 로드합니다).
 
 ## Data Source(draft)
 ### Train & Rag Document

@@ -14,7 +14,8 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 
 BASE = "https://www.10000recipe.com"
-OUTPUT_FILE = Path(__file__).resolve().parent / "recipe_ids.json"
+OUTPUT_FILE = Path(__file__).resolve().parent / "collected" / "recipe_ids.json"
+OUTPUT_FILE.parent.mkdir(exist_ok=True)
 
 DELAY_SEC = 2.5  # 페이지 간 딜레이 (서버 부하 최소화)
 
