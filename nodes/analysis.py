@@ -74,6 +74,7 @@ def ingredient_analysis(state: OverrallState):
     )
     ingredient_analysis_result = IngredientAnalysisResult(
         feasibility=result.feasibility if result else "not_cookable",
+        reason=result.reason if result else "재료 정보를 판정하는 중 문제가 발생했어요.",
         structured_recipe=None,
         needed_ingredients=None,
     )
@@ -94,7 +95,7 @@ def conditional_ingredient_analysis(state: OverrallState):
         return ["preview_recipe_options", "retreiver_recipes"]
 
     elif feasibility == "not_cookable":
-        print("배달이나 시켜드십쇼. ㅋㅋㅋㅋㅋㅋㅋㅋ")
-        return "undeveloped"
+        return "respond_infeasible"
 
+    print("conditional_ingredient_analysis 예외발생")
     return "undeveloped"

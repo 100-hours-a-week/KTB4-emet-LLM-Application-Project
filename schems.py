@@ -10,24 +10,38 @@ class StructuredRecipe(BaseModel):
     description="재료+양념 리스트. [재료명, 양, 단위]. 비수치 표현은 [재료명, -1, '']")
     steps: str = Field(description="조리순서 (Tip 이후 제외, 줄바꿈으로 단계 구분)")
 
+## 재료 요리 가능성 
 class IngredientFeasibility(BaseModel):
     feasibility: Literal[
         "directly_cookable", "needs_more_ingredients", "not_cookable"
     ] = Field(description="현재 재료로 요리가 가능한지에 대한 판정 결과")
+    reason: str | None = Field(
+                default=None,
+                description=(
+                    "not_cookable일 때만 채움. 왜 요리가 불가능한지 구체적 이유. "
+                    "예: 재료 수가 너무 적음 / 재료 조합이 요리로 성립하지 않음 / "
+                    "먹을 수 없는 재료가 포함됨 / 구하기 힘든 고급 재료가 필요함 등"
+                ),
+            )
  
-
 ## 생성레시피: 정형화 레시피 포함 
 class IngredientAnalysisResult(BaseModel):
 
     feasibility: Literal[
         "directly_cookable", "needs_more_ingredients", "not_cookable"
     ] = Field(description="현재 재료 기준 요리 가능 여부 판정")
+    reason: str | None = Field(
+        default=None,
+        description="not_cookable일 때만 채움. 왜 요리가 불가능한지 구체적 이유.",
+    )
     structured_recipe: StructuredRecipe | None = Field(
         default=None, description="생성된 정형화 레시피"
     )
     needed_ingredients: List[str] | None = Field(
         default=None, description="추출된 재료를 제외한 추가 재료 리스트"
     )
+    
+
 class RecipeList(BaseModel):
     recipes: List[StructuredRecipe] = Field(description="추출된 레시피 목록 (빈 문서는 제외)")
 

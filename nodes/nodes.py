@@ -19,6 +19,12 @@ def format_docs(ds):
 
 
 
+def respond_infeasible(state: OverrallState):
+    result = state["ingredient_analysis_result"]
+    reason = result.reason or "재료 조합상 적절한 요리를 만들기 어려워요."
+    answer = f"죄송해요, 이 재료로는 요리를 만들기 어려울 것 같아요.\n이유: {reason}"
+    return {"answer": answer}
+
 ## <-------------------------------------------------- < 미사용 > ------------------------------------------>
 
 
@@ -42,3 +48,7 @@ async def node_llm(state: OverrallState):
     ai_msg = AIMessage(content=answer)
 
     return {"messages": [human_msg, ai_msg], "answer": answer}
+
+
+
+

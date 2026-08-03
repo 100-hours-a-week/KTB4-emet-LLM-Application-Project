@@ -40,7 +40,8 @@ _, recipes.retriever = init_vdb(embedding, COLLECTION_NAME, RETRIEVER_K)
 ## 재료 기반 레시피 흐름 그래프
 def build():
     graph_test = StateGraph(OverrallState)
- 
+
+    graph_test.add_node("undeveloped", nodes.undeveloped)
     graph_test.add_node("query_analysis", analysis.query_analysis)
     graph_test.add_node("retreiver_recipes", recipes.retreiver_recipes)
     graph_test.add_node("reset_recipe_options", ingredients.reset_recipe_options)
@@ -48,10 +49,11 @@ def build():
     graph_test.add_node("extract_ingredient_update", ingredients.extract_ingredient_update)
     graph_test.add_node("apply_ingredient_modification", ingredients.apply_ingredient_modification)
     graph_test.add_node("ingredient_analysis", analysis.ingredient_analysis)
-    graph_test.add_node("undeveloped", nodes.undeveloped)
+    graph_test.add_node("respond_infeasible", nodes.respond_infeasible)
     graph_test.add_node("preview_recipe_options", preview_recipes.preview_recipe_options)
     graph_test.add_node("build_rag_recipe_options", preview_recipes.build_rag_recipe_options)
     graph_test.add_node("present_recipe_options", preview_recipes.present_recipe_options)
+    
 
     graph_test.add_node(
         "select_recipe_option", recipes.select_recipe_option
@@ -93,10 +95,13 @@ def build():
         path_map={
             "preview_recipe_options": "preview_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
+            "respond_infeasible": "respond_infeasible",
             "undeveloped": "undeveloped",
         },
     )
- 
+    graph_test.add_edge("respond_infeasible", END)
+
+    
     graph_test.add_edge("retreiver_recipes", "build_rag_recipe_options")
  
     graph_test.add_edge("preview_recipe_options", "present_recipe_options")

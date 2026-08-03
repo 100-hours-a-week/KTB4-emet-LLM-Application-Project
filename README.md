@@ -131,13 +131,14 @@ uv run python data_pipeline/recipe_pipeline.py
 > 파이프라인이 저장한 새 레시피는 백엔드가 **재시작해야** 검색에 반영됩니다
 > (서버는 시작 시 1회만 VDB를 로드합니다).
 
-## Data Source(draft)
+## Data Source
 ### Train & Rag Document
 1. 만개의 레시피   
 - URL: https://www.10000recipe.com/?srsltid=AfmBOooLjpoIMbvss7HL5iXygBMquTRGr-oGYMjopTBaFqNWWb5L2QuT
 - 레시피 문서
 
-### DB
+
+### DB(미사용)
 
 1. 식품의약품안전처(식품영양성분 데이터베이스)   
 - URL: https://various.foodsafetykorea.go.kr/nutrient/general/down/list.do

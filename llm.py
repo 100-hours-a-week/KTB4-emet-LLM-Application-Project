@@ -36,6 +36,7 @@ def invoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, mo
     fallback을 지정하면 실패 시 그 값을 반환하고, 미지정 시 예외를 그대로 전파한다.
     """
     structured_model = get_llm(provider, model).with_structured_output(schema, method="json_schema")
+
     try:
         return structured_model.invoke(prompt)
     except Exception as e:
