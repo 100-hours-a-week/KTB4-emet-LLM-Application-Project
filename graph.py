@@ -1,42 +1,31 @@
-import os
 import asyncio
 from pathlib import Path
 
 from dotenv import load_dotenv
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
 
-import ingestion.loader as loader
+import rag.loader as loader
 import nodes.nodes as nodes
 from states import OverrallState
-from ingestion.vectorstore import VectorStore
+from rag.config import COLLECTION_NAME, RETRIEVER_K, get_embedding, get_db_path
+from rag.vectorstore import VectorStore
 
-from nodes import select_recipe_option_nodes 
+from nodes import analysis, ingredients, preview_recipes, recipes
 
 
 ## 실행 위치(cwd)와 무관하게 프로젝트 루트 기준으로 .env 로딩
 PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(PROJECT_ROOT / ".env")
 
-THRESHOLD = 0.01
-MAXLOOP = 3
-COLLECTION_NAME = "test_db3"
-RETRIEVER_K = 5
-
-embedding = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
-    google_api_key=os.environ["GOOGLE_API_KEY"],
-)
+embedding = get_embedding()
 
 
 def init_vdb(embedding, collection_name, k):
     document = loader.fileloader_distributor()
-    ## splitted_docs = splitter.Token_splitter(document)
-    ## pdf문서 1개를 문서 취급
+    ## 레시피 문서 1개를 문서 1개로 취급 (청킹 없음)
     splitted_docs = document
-    ## DB_PATH가 상대경로여도 실행 위치와 무관하게 프로젝트 루트 기준으로 고정
-    db_path = str((PROJECT_ROOT / os.getenv("DB_PATH", "data/vdb")).resolve())
+    db_path = get_db_path()
     print(db_path)
     vdb = VectorStore(splitted_docs, embedding, collection_name, db_path)
     retriever = vdb.retriever(k=k)
@@ -44,66 +33,75 @@ def init_vdb(embedding, collection_name, k):
     return vdb, retriever
 
 
-## nodes 모듈의 전역 retriever에 주입
-_, nodes.retriever = init_vdb(embedding, COLLECTION_NAME, RETRIEVER_K)
-
-
-## conditional function
-def route_after_eval(state: OverrallState) -> str:
-    # 미구현 state["score"] >= THRESHOLD
-    if state["type"] != None or state["loop"] < MAXLOOP:
-        return "END"
-    else:
-        loop += 1
-        return "node_retreive"
+## recipes 모듈의 전역 retriever에 주입
+_, recipes.retriever = init_vdb(embedding, COLLECTION_NAME, RETRIEVER_K)
 
 
 ## 재료 기반 레시피 흐름 그래프
 def build():
     graph_test = StateGraph(OverrallState)
- 
-    graph_test.add_node("query_analysis", nodes.query_analysis)
-    graph_test.add_node("retreiver_recipes", nodes.retreiver_recipes)
-    graph_test.add_node("extract_ingredient", nodes.extract_ingredient)
-    graph_test.add_node("ingredient_analysis", nodes.ingredient_analysis)
+
     graph_test.add_node("undeveloped", nodes.undeveloped)
-    graph_test.add_node("preview_recipe_options", nodes.preview_recipe_options)
-    graph_test.add_node("build_rag_recipe_options", nodes.build_rag_recipe_options)
-    graph_test.add_node("present_recipe_options", nodes.present_recipe_options)
- 
+    graph_test.add_node("query_analysis", analysis.query_analysis)
+    graph_test.add_node("retreiver_recipes", recipes.retreiver_recipes)
+    graph_test.add_node("reset_recipe_options", ingredients.reset_recipe_options)
+    graph_test.add_node("extract_ingredient", ingredients.extract_ingredient)
+    graph_test.add_node("extract_ingredient_update", ingredients.extract_ingredient_update)
+    graph_test.add_node("apply_ingredient_modification", ingredients.apply_ingredient_modification)
+    graph_test.add_node("ingredient_analysis", analysis.ingredient_analysis)
+    graph_test.add_node("respond_infeasible", nodes.respond_infeasible)
+    graph_test.add_node("preview_recipe_options", preview_recipes.preview_recipe_options)
+    graph_test.add_node("build_rag_recipe_options", preview_recipes.build_rag_recipe_options)
+    graph_test.add_node("present_recipe_options", preview_recipes.present_recipe_options)
+    
+
     graph_test.add_node(
-        "select_recipe_option", select_recipe_option_nodes.select_recipe_option
+        "select_recipe_option", recipes.select_recipe_option
     )
     graph_test.add_node(
-        "finalize_recipe", select_recipe_option_nodes.finalize_recipe
+        "finalize_recipe", recipes.finalize_recipe
     )
     graph_test.add_node(
-        "fetch_rag_recipe", select_recipe_option_nodes.fetch_rag_recipe
+        "fetch_rag_recipe", recipes.fetch_rag_recipe
     )
  
     graph_test.add_edge(START, "query_analysis")
     graph_test.add_conditional_edges(
         "query_analysis",
-        nodes.conditional_query_type,
+        analysis.conditional_query_type,
         path_map={
-            "extract_ingredient": "extract_ingredient",
+            "reset_recipe_options": "reset_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
             "select_recipe_option": "select_recipe_option",
             "undeveloped": "undeveloped",
         },
     )
- 
-    graph_test.add_edge("extract_ingredient", "ingredient_analysis")
+
+    ## 재료 변경 처리: 옵션 초기화 -> (첫 턴 추출 / 변경 diff 추출) -> 목록 반영
+    graph_test.add_conditional_edges(
+        "reset_recipe_options",
+        ingredients.conditional_has_previous,
+        path_map={
+            "extract_ingredient": "extract_ingredient",
+            "extract_ingredient_update": "extract_ingredient_update",
+        },
+    )
+    graph_test.add_edge("extract_ingredient", "apply_ingredient_modification")
+    graph_test.add_edge("extract_ingredient_update", "apply_ingredient_modification")
+    graph_test.add_edge("apply_ingredient_modification", "ingredient_analysis")
     graph_test.add_conditional_edges(
         "ingredient_analysis",
-        nodes.conditional_ingredient_analysis,
+        analysis.conditional_ingredient_analysis,
         path_map={
             "preview_recipe_options": "preview_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
+            "respond_infeasible": "respond_infeasible",
             "undeveloped": "undeveloped",
         },
     )
- 
+    graph_test.add_edge("respond_infeasible", END)
+
+    
     graph_test.add_edge("retreiver_recipes", "build_rag_recipe_options")
  
     graph_test.add_edge("preview_recipe_options", "present_recipe_options")
@@ -112,7 +110,7 @@ def build():
  
     graph_test.add_conditional_edges(
         "select_recipe_option",
-        select_recipe_option_nodes.conditional_select_recipe_option,
+        recipes.conditional_select_recipe_option,
         path_map={
             "invalid": END,
             "finalize_recipe": "finalize_recipe",
@@ -126,24 +124,3 @@ def build():
  
     checkpointer = MemorySaver()
     return graph_test.compile(checkpointer=checkpointer)
-    
-
-async def run_graph():
-    #graph = build_generate()
-    graph = build()
-    ## 스트리밍으로 변경예정
-
-    result = await graph.ainvoke({
-        "type": "RECIPE",
-        "query": "",
-        "messages": [],
-        "loop": 0
-        })
-    #print(result["query"])
-    #print(result["answer"])
-    #print(result["messages"])
-
-
-##if __name__ == "__main__":
-
-  ##  asyncio.run(run_graph())

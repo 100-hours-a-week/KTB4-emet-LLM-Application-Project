@@ -18,8 +18,10 @@ data/
 data/*
 
 
-recipes/original_recipes
-recipes/structured_recipes
+data_pipeline/original_recipes
+data_pipeline/original_recipes/*
+data_pipeline/structured_recipes
+data_pipeline/structured_recipes/*
 
 # OS-generated files
 .DS_Store
