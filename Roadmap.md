@@ -4,7 +4,7 @@ KTB 4기 개인 프로젝트
 한국 레시피 데이터를 기반으로 한 LLM 레시피 추천 챗봇 프로젝트의 개발 로드맵입니다.
 사용자가 보유한 재료(필수) 및 선호 조건(원하는 재료, 요리 종류, 칼로리, 제한사항 등 선택)을 입력하면 RAG 파이프라인을 통해 레시피를 추천합니다.
 
-**Tech Stack**: FastAPI · LangGraph · ChromaDB · Google Gemini / Claude (`langchain_google_genai` / `langchain_anthropic`) · LangSmith · Playwright · `uv`
+**Tech Stack**: FastAPI · LangGraph · ChromaDB · Google Gemini / Claude (`langchain_google_genai` / `langchain_anthropic`) · 로컬 임베딩(`sentence-transformers`, `BAAI/bge-m3`) · LangSmith · Playwright · `uv`
 
 ## Milestone 1: 기본 추천 파이프라인 (MVP)
 
@@ -31,12 +31,14 @@ KTB 4기 개인 프로젝트
 | ChromaDB 임베딩 저장 | 정형화 문서를 임베딩 후 저장 | 별도 플로우차트 예정 | 완료 |
 | 벡터스토어 소스 정합성 검증 | 원본 PDF와 정형화 JSON이 함께 로드되어 벡터스토어에 섞여 들어가던 버그 발견 및 수정, 컬렉션 재구축 | `rag/loader.py` | 완료 |
 | ChromaDB 중복 방지 | `seq`/`recipe_id` 기반 고정 ID + 차집합 방식 신규 문서 추가 | `VectorStore` | 완료 |
+| 임베딩 모델 로컬 전환 | Gemini 임베딩 API 할당량(429) 문제 해결을 위해 `BAAI/bge-m3`(sentence-transformers)로 완전 전환, 폴백 없이 실패 시 명시적 에러. 컬렉션명 분리 및 Dockerfile에서 이미지 빌드 시점 가중치 사전 다운로드 | `rag/local_embeddings.py`, `rag/config.py`, `Dockerfile` | 완료 |
 
 ## Milestone 3: 품질 검증 로직
 
 | 항목 | 내용 | 관련 노드 | 상태 |
 | --- | --- | --- | --- |
 | 재료 기반 실현 가능성 판정 | 재료만으로 생성 가능 여부를 사전 판정 (레시피 자체 사후 검토와는 별개) | `ingredient_analysis` | 완료 |
+| RAG 적정성 평가 | LLM 호출 없이 순수 코드로 검색 결과 판정: 특수 재료(구하기 힘든 재료 약 60개) 게이트 → 재료 6개 미만 간이 판정 → 6개 이상 점수제(threshold 60~80%). 검색 개수(k) 5→12 확대, 상위 4개만 채택 후 부족분만큼 LLM 생성으로 보충 | `rag_adequacy_check` | 완료 |
 | 레시피 사후 검토 | 생성된 완전한 레시피의 실현 가능성/재료/조리법 사후 검증 | 레시피 검토, 레시피검토분기점 | 계획 단계 |
 | 비정상 레시피 재생성 루프 | 검토 실패 시 레시피 생성으로 재시도 | 비정상 화살표 | 계획 단계 |
 | 재시도 횟수 제한 | loop 카운터 기반 무한루프 방지 | (개발 중 추가 예정) | 계획 단계 |
@@ -58,9 +60,11 @@ KTB 4기 개인 프로젝트
 | 항목 | 내용 | 관련 노드 | 상태 |
 | --- | --- | --- | --- |
 | 멀티턴 대화 인프라 | LangGraph 체크포인터(`MemorySaver`) + `thread_id` 기반 세션 유지 | `graph.build()`, `main.py` | 완료 (영구 저장소 전환은 계획 단계) |
+| 체크포인터 msgpack 직렬화 안정화 | 커스텀 Pydantic 모델(`RecipeOption` 등)이 `allowed_msgpack_modules` 미등록으로 인해 다음 턴 역직렬화 시 dict로 깨져 `AttributeError` 발생 → 상태에서 쓰는 모델 전체를 allowlist에 등록해 해결 | `graph.py`(`JsonPlusSerializer`) | 완료 |
 | 대화 맥락 기반 질의 분류 | 최근 대화 이력을 `query_analysis`에 반영해 새 질의/선택 응답 구분 | `query_analysis` | 진행중 (`messages` 누적 로직 보강 필요) |
 | 서브그래프 / 루프 제한 구조화 | 전체 기능 완성 후 리팩토링 예정 (의도적으로 보류) | 전체 그래프 | 보류 (의도적) |
-| 캐싱 | 재료 미변경 시 문서 탐색 결과 재사용 | 레시피 문서 탐색 | 계획 단계 |
+| 완성 레시피 캐싱 | 같은 선택지 재선택 시 LLM 재호출 없이 세션 내 캐시(`finalized_recipes`, `{source}:{recipe_id}` 키) 재사용 | `finalize_recipe` | 완료 |
+| 문서 탐색 결과 캐싱 | 재료 미변경 시 벡터 검색(RAG) 결과 재사용 | 레시피 문서 탐색 | 계획 단계 |
 | 개인 레시피 RAG 입력 | 사용자 정의 레시피 우선 반영 | (미반영) | 계획 단계 |
 | 개인 이력 가중치 | 반복 재료 기반 검색 가중치 조정 | (미반영) | 계획 단계 |
 
@@ -84,6 +88,7 @@ KTB 4기 개인 프로젝트
 | 0 | 전처리 규칙 확정 | 규칙 0~9 확정, 재료·조리단계 누락 문서 스킵 처리 | ✅ 완료 |
 | 0 | 벡터 스토어 구축 | ChromaDB + Gemini 임베딩, `seq` 기반 고정 ID로 중복 방지 | ✅ 완료 |
 | 0 | RAG 문서 정형화 폼 제작 | 07/14 완료 | ✅ 완료 |
+| 0 | 임베딩 모델 로컬 전환 | Gemini 임베딩 API 429(RESOURCE_EXHAUSTED) 해결을 위해 `BAAI/bge-m3` 로컬 임베딩으로 전환, 폴백 미포함·컬렉션명 분리 | ✅ 완료 |
 | 1 | State 설계 | LangGraph `OverrallState` (thread_id / ingredient_list / recipe_options / selected_option / structured_recipe 등으로 확장) | ✅ 완료 |
 | 1 | 핵심 노드 구현 | `node_retrieve` → `node_prompt` → `node_llm` (초기 버전, 이후 전면 재구성) | ✅ 완료 |
 | 1 | 그래프 실행 구조 | `build_struct()` 동기 빌드 + 체크포인터(`MemorySaver`) 연결 | ✅ 완료 |
@@ -95,9 +100,12 @@ KTB 4기 개인 프로젝트
 | 2 | 셀프 리플렉트 루프 | `node_evaluate`, `node_reflect` + conditional edge 설계 | 🚧 진행중 (전체 기능 완성 후 재개, 의도적 보류) |
 | 2 | 하이브리드 평가 체계 | 실시간 평가 + 주기적 배치 평가 병행 도입 | 🚧 진행중 (의도적 보류) |
 | 3 | 레시피 문서 탐색 | ChromaDB 벡터 유사도 검색 노드 | ✅ 완료 |
-| 3 | 예비 선택지 생성 (LLM + RAG) | `preview_recipe_options` / `build_rag_recipe_options`, reducer 기반 병렬 병합 | ✅ 완료 |
+| 3 | RAG 적정성 평가 | 특수 재료 게이트 + 재료 수 기반 점수제(LLM 미사용)로 검색 결과 필터링, k 5→12 확대 | ✅ 완료 |
+| 3 | 예비 선택지 생성 (LLM + RAG) | `preview_recipe_options` / `build_rag_recipe_options`, reducer 기반 병렬 병합, 부족분만큼 동적 생성 | ✅ 완료 |
 | 3 | 선택지 통합 응답 | `present_recipe_options`, 추가재료 개수 기준 정렬 후 사용자 제시 | ✅ 완료 |
 | 3 | 레시피 선택 및 최종 생성 | `select_recipe_option` → `finalize_recipe` / `fetch_rag_recipe` 분기 | ✅ 완료 |
+| 3 | 완성 레시피 캐싱 | 동일 선택지 재선택 시 `finalized_recipes` 캐시로 LLM 재호출 없이 재사용 | ✅ 완료 |
+| 3 | 체크포인터 msgpack 직렬화 안정화 | 상태에서 쓰는 Pydantic 모델을 `allowed_msgpack_modules`에 등록해, 다음 턴에서 dict로 깨져 발생하던 `AttributeError` 해결 | ✅ 완료 |
 | 3 | 레시피 사후 검토 | 생성 레시피의 실현 가능성·재료·조리법 검증 (정상/비정상 분기) | 📋 예정 |
 | 3 | 재시도 횟수 제한 (loop limit) | 비정상 재생성·재탐색 루프 무한 반복 방지 | 📋 예정 |
 | 3 | 멀티턴 인프라 | 체크포인터 + `thread_id` 기반 세션 유지, 멀티유저 격리 확인 | ✅ 완료 |
@@ -167,6 +175,21 @@ KTB 4기 개인 프로젝트
 | MM/DD (토) | | | |
 | MM/DD (일) | | | |
 
+### Week 13 (2026-08-03 ~ 2026-08-09)
+
+**이번 주 목표**: RAG 적정성 평가 도입, 임베딩 모델 로컬 전환, 완성 레시피 캐싱
+
+| 날짜 | Done | ToDo | TBD |
+|---|---|---|---|
+| 08/03 (월) | | | |
+| 08/04 (화) | - RAG 적정성 평가 도입(특수 재료 게이트 + 점수제, k 5→12 확대) <br> - 임베딩 모델 로컬 전환(`BAAI/bge-m3`, Dockerfile 사전 다운로드) <br> - 완성 레시피 캐싱(`finalized_recipes`) <br> - 체크포인터 msgpack `allowed_msgpack_modules` 미등록으로 인한 `AttributeError` 해결 및 테스트 성공 | | - 프리뷰 레시피 개수가 `PREVIEW_TOTAL_COUNT`와 무관하게 검색 개수만큼 출력되던 버그(원인: 적정성 평가 결과가 최종 출력 경로에 미반영) 발견 및 직접 수정 |
+| MM/DD (수) | | | |
+| MM/DD (목) | | | |
+| MM/DD (금) | | | |
+| MM/DD (토) | | | |
+| MM/DD (일) | | | |
+
+**주간 요약**: (한 주 진행 상황 및 다음 주로 넘길 항목 정리)
 
 
 

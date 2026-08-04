@@ -13,6 +13,8 @@
 - 대화 중 재료 추가/제거/교체("대파 대신 토마토로 변경해줘" 등) 반영 후 재추천          <--- **executable**
 - 재료명 동의어/상위-하위 개념 정규화(계란=달걀, 청사과⊂사과 등)로 매칭 정확도 향상        <--- **executable**
 - 번호/이름/부정 표현("2번 말고 3번")까지 이해하는 레시피 선택                       <--- **executable**
+- RAG 검색 결과의 재료 적정성 자동 평가(특수 재료 게이트 + 점수제)로 부실한 추천 필터링    <--- **executable**
+- 동일 선택지 재선택 시 캐시 재사용으로 LLM 재호출 없이 즉시 응답                     <--- **executable**
 - 레시피 데이터 수집 파이프라인(랜덤 키워드 수집 → PDF 저장 → LLM 구조화 → VDB 저장)      <--- **executable (수동 실행 + 서버 재시작 필요)**
   
 - 추천한 레시피가 긍정적이면 새로운 레시피는 문서화 저장                              <--- **In development**
@@ -28,9 +30,10 @@
 https://github.com/100-hours-a-week/KTB4-emet-LLM-Application-Project/blob/main/Roadmap.md   
 
 ---
-## component(update: 2026.08.02)   
+## component(update: 2026.08.04)   
 chatbot_project/   
 ├── app/   
+├── Dockerfile  
 ├── data_pipeline/  
 │   ├── collect_recipe_links.py  
 │   ├── food_keywords.py  
@@ -58,6 +61,7 @@ chatbot_project/
 │   ├── __init__.py  
 │   ├── config.py  
 │   ├── loader.py  
+│   ├── local_embeddings.py  
 │   └── vectorstore.py  
 ├── self_model/  
 │   └── loader.py  
@@ -90,6 +94,10 @@ chatbot_project/
 
 `.env`의 `LLM_PROVIDER`(`"google"` 또는 `"claude"`) 및 해당 API 키가 설정되어 있어야 합니다.
 백엔드(챗봇 서버)와 데이터 파이프라인(레시피 수집기)은 별개 프로세스입니다.
+
+> 임베딩은 LLM 프로바이더와 무관하게 로컬 모델(`sentence-transformers`의 `BAAI/bge-m3`)을 사용합니다.
+> API 키가 필요 없는 대신, 최초 실행 시 모델 가중치(약 2.27GB)를 다운로드합니다
+> (Docker 이미지는 빌드 시점에 미리 받아두므로 컨테이너 기동 시 재다운로드가 없습니다).
 
 ### 백엔드 (챗봇 서버)
 
