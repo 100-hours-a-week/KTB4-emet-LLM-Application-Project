@@ -15,9 +15,13 @@ options_prompt = ChatPromptTemplate.from_messages([
      "5. 추가 재료는 일반 가정/마트에서 쉽게 구할 수 있는 것으로만 제한해주세요. "
      "6. 옵션이 여러 개인 경우, 후보들은 서로 다른 요리여야 하며 추가 재료가 적은 후보를 우선 배치해주세요. "
      "7. 이 단계에서는 title과 needed_ingredients만 제시하고, 조리법이나 정확한 재료 양은 작성하지 마세요. "
+     "8. 아래 excluded_titles 목록에 있는 요리 이름과 겹치지 않는 요리로만 제시해주세요 "
+     "(이미 다른 경로로 사용자에게 제시된 요리들입니다). "
      "options 리스트 안 각 항목마다 title과 needed_ingredients만 채우고, "
      "source 필드는 예외 없이 항상 \"generated\" 값으로 고정하세요. "
      "recipe_id 필드는 값을 지어내지 말고 반드시 null로 두세요. "
      "\n\n"),
-    ("human", "주어진 재료: {ingredients}"),
+    ("human",
+     "주어진 재료: {ingredients}\n"
+     "제외할 요리 이름 목록(excluded_titles): {excluded_titles}"),
 ])

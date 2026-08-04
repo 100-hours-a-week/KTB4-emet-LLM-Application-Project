@@ -1,11 +1,13 @@
 from langchain_core.messages import HumanMessage, AIMessage
-
+from nodes.preview_recipes import evaluate_rag_options,compute_missing_ingredients
+from schems import RecipeOption 
 import llm
 from states import OverrallState
-
+import os
 from dotenv import load_dotenv
 load_dotenv()
 
+PREVIEW_TOTAL_COUNT = int(os.getenv("PREVIEW_TOTAL_COUNT"))  ## 최종적으로 사용자에게 보여줄 전체 선택지 개수 (RAG 적합 + LLM 생성 합산)
 
 ## 미개발구간 출력
 ## 개발 진행중인 구간은 주석형태로 표시
@@ -29,10 +31,45 @@ def respond_infeasible(state: OverrallState):
     )
     return {"answer": answer}
 
-## <-------------------------------------------------- < 미사용 > ------------------------------------------>
-
-
-
+ 
+def rag_adequacy_check(state: OverrallState):
+    """
+    RAG 검색 결과(k=12로 늘린 것) 전체를 순회하며 적정성 평가.
+    LLM 호출 없음. 적합 판정 상위 N개를 채택하고, 부족한 개수를 계산해
+    preview_recipe_options가 몇 개를 생성해야 하는지 넘겨준다.
+    """
+    print("\n현재노드: rag_adequacy_check\n")
+ 
+    rag_recipes = state["retrieved_recipes"].recipes
+    user_ingredient_names = state["ingredient_list"].ingredients_name
+ 
+    selected_recipes, shortfall = evaluate_rag_options(
+        rag_recipes, user_ingredient_names, max_count=PREVIEW_TOTAL_COUNT
+    )
+ 
+    ## 적합 RAG 레시피들을 RecipeOption 형태로 변환 (build_rag_recipe_options의
+    ## 변환 로직을 재사용. compute_missing_ingredients도 여기서 다시 적용)
+    rag_options = []
+    for recipe in selected_recipes:
+        recipe_names = {item[0] for item in recipe.ingredients if item}
+        needed = compute_missing_ingredients(recipe_names, set(user_ingredient_names))
+        rag_options.append(
+            RecipeOption(
+                title=recipe.title,
+                source="rag",
+                recipe_id=recipe.recipe_id,
+                needed_ingredients=needed,
+            )
+        )
+ 
+    print(f"적합 RAG 선택지: {len(rag_options)}개, 부족분: {shortfall}개")
+ 
+    return {
+        "rag_options": rag_options,
+        "preview_needed_count": shortfall,
+    }
+ 
+"""
 async def node_llm(state: OverrallState):
 
     llm_model = llm.get_llm()
@@ -52,7 +89,7 @@ async def node_llm(state: OverrallState):
     ai_msg = AIMessage(content=answer)
 
     return {"messages": [human_msg, ai_msg], "answer": answer}
-
+"""
 
 
 

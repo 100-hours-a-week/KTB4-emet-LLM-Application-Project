@@ -4,9 +4,11 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-# Install dependencies first so this layer is cached while source changes
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project --no-dev
+
+# 의존성만 설치된 시점에 모델도 미리 받아둠 -> 소스코드만 바뀌면 이 레이어는 캐시돼서 재실행 안 됨
+RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3')"
 
 COPY . .
 RUN uv sync --locked --no-dev

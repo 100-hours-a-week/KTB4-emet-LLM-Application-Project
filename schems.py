@@ -112,6 +112,7 @@ class IngredientUpdate(BaseModel):
         description="기존 목록에서 뺄 재료명 목록",
     )
 
+
 class RecipeOption(BaseModel):
     """사용자에게 제시할 예비 선택지 한 항목 (LLM 생성 / RAG 탐색 공통)."""
     title: str = Field(description="요리 이름")
@@ -120,7 +121,12 @@ class RecipeOption(BaseModel):
     )
     recipe_id: str | None = Field(
         default=None,
-        description="RAG 탐색 결과인 경우 원본 레시피 id (StructuredRecipe.recipe_id와 동일, 정식 레시피 재조회용)",
+        description=(
+            "고유 식별자. RAG 탐색 결과인 경우 원본 레시피 id "
+            "(StructuredRecipe.recipe_id와 동일, 정식 레시피 재조회용). "
+            "generated인 경우 preview_recipe_options에서 부여하는 임시 uuid "
+            "(finalize_recipe 캐시 조회용, StructuredRecipe.recipe_id와는 무관)."
+        ),
     )
     needed_ingredients: List[str] = Field(
         default_factory=list,

@@ -1,5 +1,5 @@
 import json
-
+import uuid
 from schems import (
     StructuredRecipe,
     RecipeList,
@@ -18,6 +18,24 @@ load_dotenv()
 
 ## graph.py에서 초기화된 retriever가 주입됩니다.
 retriever = None
+
+def _format_ingredient_item(item: list) -> str:
+    """StructuredRecipe.ingredients의 [재료명, 양, 단위] 한 항목을 문자열로."""
+    name, amount, unit = item
+    if amount == -1:
+        return name
+    return f"{name} {amount}{unit}".strip()
+ 
+ 
+def format_recipe_answer(recipe: StructuredRecipe) -> str:
+    """완성된 StructuredRecipe를 사용자에게 보여줄 답변 문자열로 변환.
+    finalize_recipe 신규 생성 / 캐시 재사용 양쪽에서 동일하게 사용."""
+    ingredients_str = ", ".join(_format_ingredient_item(item) for item in recipe.ingredients)
+    return (
+        f"[{recipe.title}] ({recipe.servings}인분 / {recipe.cook_time}분)\n\n"
+        f"재료: {ingredients_str}\n\n"
+        f"{recipe.steps}"
+    )
 
 
 def invalid_response(options):
@@ -148,31 +166,48 @@ def fetch_rag_recipe(state: OverrallState):
 
 
 ## LLM 생성 옵션 선택 시: title/추가재료를 고정한 채 정식 레시피 완성
+
 def finalize_recipe(state: OverrallState):
     print("\n현재노드: finalize_recipe\n")
-
+ 
     selected = state["selected_option"]
-    query_finalize_recipe = recipes_prompts.finalize_from_preview_prompt.format(
+    cache_key = f"{selected.source}:{selected.recipe_id}"
+ 
+    finalized_recipes = state.get("finalized_recipes", {})
+ 
+    ## 캐시 확인: 이미 만든 적 있는 요리면 재사용 (LLM 재호출 없음)
+    if cache_key in finalized_recipes:
+        print(f"캐시 적중: '{selected.title}' ({cache_key}) -> 재사용")
+        cached_recipe = finalized_recipes[cache_key]
+        return {
+            "structured_recipe": cached_recipe,
+            "answer": format_recipe_answer(cached_recipe),
+        }
+ 
+    ## 캐시 미스: 새로 생성
+    print(f"캐시 미스: '{selected.title}' ({cache_key}) -> 신규 생성")
+ 
+    query_finalize = recipes_prompts.finalize_from_preview_prompt.format(
         ingredients=state["ingredient_list"].ingredients_name,
         selected_title=selected.title,
         needed_ingredients=selected.needed_ingredients,
     )
-
-    result = llm.invoke_structured(StructuredRecipe, query_finalize_recipe, fallback=None)
+ 
+    result = llm.invoke_structured(StructuredRecipe, query_finalize, fallback=None)
+ 
     if result is None:
-        return {
-            "answer": "죄송해요, 레시피를 완성하는 데 문제가 생겼어요. 다시 시도해 주세요.",
-            "structured_recipe": None,
-        }
-
-    ingredients_str = ", ".join(format_ingredient(item) for item in result.ingredients)
-    answer = (
-        f"[{result.title}] ({result.servings}인분 / {result.cook_time}분)\n\n"
-        f"재료: {ingredients_str}\n\n"
-        f"{result.steps}"
-    )
-
-    return {"structured_recipe": result, "answer": answer}
+        answer = "죄송해요, 레시피를 만드는 중 문제가 발생했어요. 다시 시도해주세요."
+        return {"answer": answer}
+ 
+    ## 생성된 레시피에도 이 세션에서 유일한 recipe_id 부여 (G 접두사 규칙 유지)
+    if not result.recipe_id:
+        result.recipe_id = f"G{uuid.uuid4().hex[:8]}"
+ 
+    return {
+        "structured_recipe": result,
+        "finalized_recipes": {**finalized_recipes, cache_key: result},
+        "answer": format_recipe_answer(result),
+    }
 
 
 ## 재료 기반 레시피 생성

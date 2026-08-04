@@ -12,7 +12,7 @@ from rag.config import COLLECTION_NAME, RETRIEVER_K, get_embedding, get_db_path
 from rag.vectorstore import VectorStore
 
 from nodes import analysis, ingredients, preview_recipes, recipes
-
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 ## 실행 위치(cwd)와 무관하게 프로젝트 루트 기준으로 .env 로딩
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -52,19 +52,14 @@ def build():
     graph_test.add_node("respond_infeasible", nodes.respond_infeasible)
     graph_test.add_node("preview_recipe_options", preview_recipes.preview_recipe_options)
     graph_test.add_node("build_rag_recipe_options", preview_recipes.build_rag_recipe_options)
+    graph_test.add_node("rag_adequacy_check", nodes.rag_adequacy_check)
     graph_test.add_node("present_recipe_options", preview_recipes.present_recipe_options)
     
+    graph_test.add_node("select_recipe_option", recipes.select_recipe_option)
+    graph_test.add_node("finalize_recipe", recipes.finalize_recipe)
+    graph_test.add_node("fetch_rag_recipe", recipes.fetch_rag_recipe)
 
-    graph_test.add_node(
-        "select_recipe_option", recipes.select_recipe_option
-    )
-    graph_test.add_node(
-        "finalize_recipe", recipes.finalize_recipe
-    )
-    graph_test.add_node(
-        "fetch_rag_recipe", recipes.fetch_rag_recipe
-    )
- 
+    
     graph_test.add_edge(START, "query_analysis")
     graph_test.add_conditional_edges(
         "query_analysis",
@@ -105,7 +100,8 @@ def build():
     graph_test.add_edge("retreiver_recipes", "build_rag_recipe_options")
  
     graph_test.add_edge("preview_recipe_options", "present_recipe_options")
-    graph_test.add_edge("build_rag_recipe_options", "present_recipe_options")
+    graph_test.add_edge("build_rag_recipe_options", "rag_adequacy_check")
+    graph_test.add_edge("rag_adequacy_check", "preview_recipe_options")
     graph_test.add_edge("present_recipe_options", END)
  
     graph_test.add_conditional_edges(
@@ -122,5 +118,17 @@ def build():
  
     graph_test.add_edge("undeveloped", END)
  
-    checkpointer = MemorySaver()
+    checkpointer = MemorySaver(
+        serde=JsonPlusSerializer(
+            allowed_msgpack_modules=[
+                ("schems", "RecipeList"),
+                ("schems", "RecipeOption"),
+                ("schems", "StructuredRecipe"),
+                ("schems", "IngredientList"),
+                ("schems", "Ingredient"),
+                ("schems", "IngredientUpdate"),
+                ("schems", "IngredientAnalysisResult"),
+            ]
+        )
+    )
     return graph_test.compile(checkpointer=checkpointer)

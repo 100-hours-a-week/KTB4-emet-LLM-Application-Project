@@ -1,21 +1,20 @@
 import os
 from pathlib import Path
 
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from rag.local_embeddings import LocalBGEEmbeddings
+ 
 
 ## graph.py(서버)와 data_pipeline(파이프라인)이 반드시 같은 VDB(컬렉션+경로)를
 ## 봐야 하므로, 이 값들은 여기 한 곳에서만 정의하고 양쪽이 그대로 가져다 쓴다.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-COLLECTION_NAME = "test_db3"
-RETRIEVER_K = 5
+COLLECTION_NAME = "local_embedding_bge_m3_vdb"  ## 08_04 updated
+RETRIEVER_K = 12
 
+embedding = LocalBGEEmbeddings(model_name="BAAI/bge-m3", device="cpu")
 
 def get_embedding():
-    return GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001",
-        google_api_key=os.environ["GOOGLE_API_KEY"],
-    )
+    return embedding
 
 
 def get_db_path() -> str:
