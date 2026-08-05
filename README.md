@@ -22,7 +22,7 @@
 ---
 
 ## Flowchart
-<img width="2629" height="6086" alt="graph_reordered_uniform" src="https://github.com/user-attachments/assets/01deb440-7323-43c4-8895-08b3f0ffaa5b" />
+<img width="2636" height="6070" alt="full_graph_current_korean" src="https://github.com/user-attachments/assets/5070d1ab-864d-481f-8c26-e29c08b87c0e" />
 
 ---
 
