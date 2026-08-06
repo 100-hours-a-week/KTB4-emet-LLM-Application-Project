@@ -84,6 +84,16 @@ class VectorStore:
         self.VDB.add_documents(fresh, ids=[self.doc_id(d) for d in fresh])
         print(f"VDB doc is updated. (신규 문서 {len(fresh)}개 추가)")
 
+    @staticmethod
+    def _version_key(prefix: str) -> str:
+        """VDB 데이터 자체와 섞이지 않도록 prefix 폴더 밖의 별도 키에 버전을 둔다."""
+        return f"{prefix}.version"
+
+    @staticmethod
+    def _local_version_path(persist_directory: str) -> Path:
+        p = Path(persist_directory)
+        return p.parent / f"{p.name}.version"
+
     def _sync_to_s3_if_configured(self, persist_directory):
         """VDB_S3_UPLOAD=1 이고 VDB_S3_BUCKET이 설정된 경우에만 S3로 업로드.
 
@@ -104,9 +114,10 @@ class VectorStore:
         prefix = os.getenv("VDB_S3_PREFIX", "vdb")
         self._upload_directory_to_s3(persist_directory, bucket, prefix)
 
-    @staticmethod
-    def _upload_directory_to_s3(persist_directory, bucket, prefix):
+    @classmethod
+    def _upload_directory_to_s3(cls, persist_directory, bucket, prefix):
         import boto3
+        from datetime import datetime, timezone
 
         s3 = boto3.client("s3")
         local_root = Path(persist_directory)
@@ -119,7 +130,28 @@ class VectorStore:
                 s3.upload_file(str(file_path), bucket, s3_key)
                 uploaded += 1
 
-        print(f"VDB {uploaded}개 파일을 s3://{bucket}/{prefix} 에 동기화 완료")
+        ## 업로드한 VDB를 식별할 버전 마커. 다음 서버 기동 시 이 값과 로컬 마커가
+        ## 같으면 전체 다운로드/재임베딩을 건너뛸 수 있다.
+        version = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        s3.put_object(Bucket=bucket, Key=cls._version_key(prefix), Body=version.encode())
+        cls._local_version_path(persist_directory).write_text(version)
+
+        print(f"VDB {uploaded}개 파일을 s3://{bucket}/{prefix} 에 동기화 완료 (버전={version})")
+
+
+def _get_remote_version(bucket: str, prefix: str) -> str | None:
+    """S3에 올려둔 버전 마커를 읽는다. 아직 한 번도 버전과 함께 업로드된 적 없으면 None."""
+    import boto3
+    from botocore.exceptions import ClientError
+
+    s3 = boto3.client("s3")
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=VectorStore._version_key(prefix))
+        return obj["Body"].read().decode().strip()
+    except ClientError as e:
+        if e.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+            return None
+        raise
 
 
 def sync_vdb_from_s3(persist_directory: str) -> None:
@@ -127,6 +159,11 @@ def sync_vdb_from_s3(persist_directory: str) -> None:
     VDB_S3_BUCKET이 설정되어 있으면, S3의 최신 VDB를 persist_directory로 내려받는다.
     앱 시작 시점(main.py의 lifespan)에서 호출해 EC2가 항상 최신 VDB를 쓰도록 보장.
     미설정 시 조용히 건너뜀 (로컬 전용 개발 환경에서도 에러 없이 동작).
+
+    S3/로컬 버전 마커가 같으면 다운로드를 건너뛴다. 이게 없으면 매 기동마다
+    전체 VDB를 무조건 새로 받아써서, 로컬 VDB가 이미 최신이어도 그 위에
+    다시 덮어써 add_new_docs가 문서 ID 불일치로 오인하고 전체를 재임베딩하는
+    문제(로컬 개발 시 매번 수 분씩 걸리는 원인)가 있었다.
     """
     bucket = os.getenv("VDB_S3_BUCKET")
     if not bucket:
@@ -134,7 +171,19 @@ def sync_vdb_from_s3(persist_directory: str) -> None:
         return
 
     prefix = os.getenv("VDB_S3_PREFIX", "vdb")
+
+    remote_version = _get_remote_version(bucket, prefix)
+    local_version_path = VectorStore._local_version_path(persist_directory)
+    local_version = local_version_path.read_text().strip() if local_version_path.exists() else None
+
+    if remote_version is not None and remote_version == local_version:
+        print(f"VDB 버전 최신(버전={remote_version}) -> S3 다운로드 건너뜀")
+        return
+
     _download_directory_from_s3(persist_directory, bucket, prefix)
+
+    if remote_version is not None:
+        local_version_path.write_text(remote_version)
 
 
 def _download_directory_from_s3(persist_directory: str, bucket: str, prefix: str) -> None:
@@ -147,7 +196,9 @@ def _download_directory_from_s3(persist_directory: str, bucket: str, prefix: str
     paginator = s3.get_paginator("list_objects_v2")
     downloaded = 0
 
-    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+    ## S3 Prefix는 경로가 아니라 순수 문자열 접두사라, 끝에 "/"를 안 붙이면
+    ## "{prefix}.version" 같은 형제 키까지 이 폴더 밑으로 잘못 끌려온다.
+    for page in paginator.paginate(Bucket=bucket, Prefix=f"{prefix}/"):
         for obj in page.get("Contents", []):
             key = obj["Key"]
             relative_path = key[len(prefix):].lstrip("/")
