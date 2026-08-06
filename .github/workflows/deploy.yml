@@ -28,6 +28,11 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-project:latest
+          ## GitHub Actions 러너는 매번 새 VM이라 캐시 설정이 없으면 이전 빌드의 레이어를
+          ## 전혀 재사용하지 못한다. 특히 BGE-m3 모델(~2.2GB)을 미리 받아두는 레이어가
+          ## 소스 코드와 무관하게 매 배포마다 처음부터 다시 다운로드됨 -> GHA 캐시로 재사용
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     needs: build-and-push
