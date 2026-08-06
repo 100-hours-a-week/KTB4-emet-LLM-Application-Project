@@ -40,6 +40,11 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            ## docker pull이 실패해도(디스크 부족, 네트워크 등) 스크립트가 계속 진행되면
+            ## 옛날 로컬 이미지로 컨테이너를 재생성하고 "성공"으로 끝나버린다.
+            ## set -e로 pull 실패 시 즉시 중단 -> 기존(정상 동작 중인) 컨테이너는
+            ## 그대로 유지되고 워크플로우가 실패로 표시된다.
+            set -e
             docker image prune -f
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-project:latest
             docker stop chatbot-container || true
