@@ -19,8 +19,8 @@ class OverrallState(MessagesState):
     thread_id: str
     ## 질의 입력
     query: str
-    ## 질의 분석
-    query_type:str
+    ## 질의 분석(질의 타입과 이유)
+    query_type: schems.QueryType
     ## 질의 대답
     answer: str
     ## 질의에서 추추된 재료 리스트(재료 추출)

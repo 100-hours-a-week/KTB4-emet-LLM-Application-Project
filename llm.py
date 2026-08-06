@@ -1,5 +1,5 @@
 import os
-## 호출결과 캐싱해주는 데코레이터
+import time
 from functools import lru_cache
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -10,6 +10,10 @@ load_dotenv()
 ## fallback "미지정"과 "폴백값이 None인 경우"를 구분하기 위한 센티널
 NO_FALLBACK = object()
 
+## 폴백 순서 (provider 미지정 시 이 순서대로 직접 시도)
+FALLBACK_ORDER = ("claude", "google", "vllm")
+
+
 ## LLM 인스턴스 반환
 @lru_cache
 def get_llm(provider: str | None = None, model: str | None = None):
@@ -18,69 +22,107 @@ def get_llm(provider: str | None = None, model: str | None = None):
 
     if provider == "claude":
         from langchain_anthropic import ChatAnthropic
+        resolved_model = model or os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8")
         return ChatAnthropic(
-            model=model or os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
-            max_tokens=16000,
+            model=resolved_model,
+            max_tokens=2000,
+            max_retries=0,
+            timeout=15,
         )
     elif provider == "vllm":
         from langchain_openai import ChatOpenAI
+        resolved_model = model or os.getenv("LLM_MODEL_NAME")
+        base_url = os.getenv("LLM_BASE_URL")
         return ChatOpenAI(
-            model=model or os.getenv("LLM_MODEL_NAME"),
-            base_url=os.getenv("LLM_BASE_URL"),
+            model=resolved_model,
+            base_url=base_url,
             api_key=os.getenv("LLM_API_KEY"),
-            max_tokens=16000,
+            max_tokens=2000,
+            max_retries=0,
+            timeout=15,
         )
 
     ## 자체학습모델("self" provider) 연동 예정 자리 -> self_model/ 폴더 참고
+    resolved_model = model or os.getenv("GOOGLE_MODEL", "gemini-3.5-flash-lite")
     return ChatGoogleGenerativeAI(
-        model=model or os.getenv("GOOGLE_MODEL", "gemini-flash-latest"),
+        model=resolved_model,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
     )
 
-## 자동 전환 폴백 체인
-@lru_cache
-def get_llm_with_fallback(model: str | None = None):
-    """
-    Claude -> Google -> vLLM 순으로 자동 폴백되는 LLM 반환.
-    (모든 예외에서 폴백)
-    """
-    claude = get_llm("claude", model)
-    google = get_llm("google", model)
-    vllm = get_llm("vllm", model)
-    return claude.with_fallbacks([google, vllm])
+
+def _try_providers_sync(schema, prompt, providers, model):
+    """동기: 주어진 provider 목록을 순서대로 시도. 성공하면 (결과, provider) 반환.
+    전부 실패하면 None 반환."""
+    for p in providers:
+        llm = get_llm(p, model)
+        structured_model = llm.with_structured_output(schema, method="json_schema")
+        start = time.time()
+        print(f"[LLM DEBUG] provider={p}, prompt={repr(prompt)[:500]}")  # 이 줄 추가
+        try:
+            result = structured_model.invoke(prompt)
+            elapsed = time.time() - start
+            print(f"[LLM] {schema.__name__} 호출 성공 (provider={p}), 소요시간={elapsed:.2f}s")
+            return result, p
+        except Exception as e:
+            elapsed = time.time() - start
+            print(f"[LLM] {schema.__name__} 호출 실패 (provider={p}), 소요시간={elapsed:.2f}s: {e}")
+            continue
+    return None, None
+
+
+async def _try_providers_async(schema, prompt, providers, model):
+    """비동기 버전. 동일한 순차 시도 + 로그 패턴."""
+    for p in providers:
+        llm = get_llm(p, model)
+        structured_model = llm.with_structured_output(schema, method="json_schema")
+        start = time.time()
+        try:
+            result = await structured_model.ainvoke(prompt)
+            elapsed = time.time() - start
+            print(f"[LLM] {schema.__name__} 호출 성공 (provider={p}), 소요시간={elapsed:.2f}s")
+            return result, p
+        except Exception as e:
+            elapsed = time.time() - start
+            print(f"[LLM] {schema.__name__} 호출 실패 (provider={p}), 소요시간={elapsed:.2f}s: {e}")
+            continue
+    return None, None
 
 
 def invoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, model=None):
     """
     구조화 출력 질의-응답 헬퍼 (동기).
-    provider 미지정 시 Claude->Google->vLLM 자동 폴백 체인을 사용한다.
-    fallback을 지정하면 (체인 전체가) 실패 시 그 값을 반환하고, 미지정 시 예외를 그대로 전파한다.
+    provider 미지정 시 Claude->Google->vLLM 순으로 직접 순차 시도하며,
+    각 provider의 성공/실패가 개별적으로 터미널에 로그로 남는다.
+    fallback을 지정하면 전체 실패 시 그 값을 반환하고, 미지정 시 예외를 전파한다.
     """
-    llm = get_llm_with_fallback(model) if provider is None else get_llm(provider, model)
-    # 각 모델마다 json 정형화 포멧 응답받도록 설정 
-    structured_model = llm.with_structured_output(schema, method="json_schema")
+    providers = [provider] if provider is not None else list(FALLBACK_ORDER)
 
-    try:
-        return structured_model.invoke(prompt)
-    except Exception as e:
-        if fallback is NO_FALLBACK:
-            raise
-        print(f"[invoke_structured] {schema.__name__} 호출 실패: {e}")
-        return fallback
+    result, used_provider = _try_providers_sync(schema, prompt, providers, model)
+
+    if result is not None:
+        return result
+
+    print(f"[LLM] {schema.__name__} 전체 provider 실패 (시도한 provider: {providers})")
+    if fallback is NO_FALLBACK:
+        raise RuntimeError(f"{schema.__name__}: 모든 provider({providers}) 호출 실패")
+    return fallback
 
 
 async def ainvoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, model=None):
     """
     구조화 출력 질의-응답 헬퍼 (비동기).
-    provider 미지정 시 Claude->Google->vLLM 자동 폴백 체인을 사용한다.
-    fallback을 지정하면 (체인 전체가) 실패 시 그 값을 반환하고, 미지정 시 예외를 그대로 전파한다.
+    provider 미지정 시 Claude->Google->vLLM 순으로 직접 순차 시도하며,
+    각 provider의 성공/실패가 개별적으로 터미널에 로그로 남는다.
+    fallback을 지정하면 전체 실패 시 그 값을 반환하고, 미지정 시 예외를 전파한다.
     """
-    llm = get_llm_with_fallback(model) if provider is None else get_llm(provider, model)
-    structured_model = llm.with_structured_output(schema, method="json_schema")
-    try:
-        return await structured_model.ainvoke(prompt)
-    except Exception as e:
-        if fallback is NO_FALLBACK:
-            raise
-        print(f"[ainvoke_structured] {schema.__name__} 호출 실패: {e}")
-        return fallback
+    providers = [provider] if provider is not None else list(FALLBACK_ORDER)
+
+    result, used_provider = await _try_providers_async(schema, prompt, providers, model)
+
+    if result is not None:
+        return result
+
+    print(f"[LLM] {schema.__name__} 전체 provider 실패 (시도한 provider: {providers})")
+    if fallback is NO_FALLBACK:
+        raise RuntimeError(f"{schema.__name__}: 모든 provider({providers}) 호출 실패")
+    return fallback

@@ -34,31 +34,29 @@ def query_analysis(state: OverrallState):
 
     ## 분류 실패 시 "NONE"으로 폴백 -> conditional_query_type에서 undeveloped로 라우팅됨
     result = llm.invoke_structured(
-        QueryType, query_analysis_query, fallback=QueryType(type="NONE")
+        QueryType, query_analysis_query, fallback=None
     )
 
     print(type(result), result)
 
-    return {"query_type": result.type}
+    return {"query_type": result}
 
 
 ## 다음 노드 선택
 def conditional_query_type(state: OverrallState):
     print("현재 컨디셔널함수:conditional_query_type")
-    print(f"query_type: {state["query_type"]}")
     print(state["query_type"])
-    if state["query_type"] == "레시피 추천":
+    qurey_type = state["query_type"].type
+    if qurey_type == "레시피 추천":
         return "reset_recipe_options"
-    elif state["query_type"] == "레시피 선택":
+    elif qurey_type == "레시피 선택":
             return "select_recipe_option"
-    elif state["query_type"] == "레시피 반응":
-        return "undeveloped"
-    elif state["query_type"] == "NONETYPE":
-        return "undeveloped"
-    elif state["query_type"] == "NONE":
-        return "undeveloped"
+    elif qurey_type == "NONETYPE":
+        return "respond_undevopled"
+    elif qurey_type == "NONE":
+        return "respond_unrealated"
 
-    return "undeveloped"
+    return "respond_unrealated"
 
 ## 재료 조합 경고 메시지 리스트 생성 (LLM 호출 없음 — 순수 코드)
 def _build_combination_warnings(ingredient_names: list[str]) -> list[str] | None:

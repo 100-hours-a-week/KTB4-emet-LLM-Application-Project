@@ -51,8 +51,12 @@ class RecipeList(BaseModel):
 
 ## query_analysis
 class QueryType(BaseModel):
-    type: Literal["레시피 추천", "레시피 선택", "레시피 반응", "NONETYPE", "NONE"] = Field(
+    type: Literal["레시피 추천", "레시피 선택", "NONETYPE", "NONE"] = Field(
         description="사용자 질의의 분류 타입"
+    )
+    reason: str | None = Field(
+        default= None,
+        description="이 타입으로 판단한 이유, 'NONETYPE', 'NONE'인 경우 사용자에게 출력"
     )
 
 class Ingredient(BaseModel):

@@ -19,6 +19,21 @@ def undeveloped(state: OverrallState):
 def format_docs(ds):
     return "\n\n".join(d.page_content for d in ds)
 
+def respond_undevopled(state: OverrallState):
+    result = state["query_type"]
+    reason = result.reason or "개발되지 않은 기능에 대한 요청"
+    answer = (
+        f"죄송해요, 해당 요청은 아직 개발되지 않은 저희 기능이입니다. 다른 요청 부탁드립니다.\n이유: {reason}"
+    )
+    return {"answer": answer}
+
+def respond_unrealated(state: OverrallState):
+    result = state["query_type"]
+    reason = result.reason or "관련없는 요청"
+    answer = (
+        f"죄송해요, 해당 요청은 저희와 관련없는 기능이입니다. 다른 요청 부탁드립니다.\n이유: {reason}"
+    )
+    return {"answer": answer}
 
 
 def respond_infeasible(state: OverrallState):

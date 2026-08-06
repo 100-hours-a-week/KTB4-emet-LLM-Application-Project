@@ -40,6 +40,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            docker image prune -f
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/chatbot-project:latest
             docker stop chatbot-container || true
             docker rm chatbot-container || true

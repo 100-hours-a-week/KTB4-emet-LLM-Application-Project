@@ -43,6 +43,9 @@ def build():
 
     graph_test.add_node("undeveloped", nodes.undeveloped)
     graph_test.add_node("query_analysis", analysis.query_analysis)
+    graph_test.add_node("respond_undevopled", nodes.respond_undevopled)
+    graph_test.add_node("respond_unrealated", nodes.respond_unrealated)
+
     graph_test.add_node("retreiver_recipes", recipes.retreiver_recipes)
     graph_test.add_node("reset_recipe_options", ingredients.reset_recipe_options)
     graph_test.add_node("extract_ingredient", ingredients.extract_ingredient)
@@ -68,9 +71,12 @@ def build():
             "reset_recipe_options": "reset_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
             "select_recipe_option": "select_recipe_option",
-            "undeveloped": "undeveloped",
+            "respond_undevopled": "respond_undevopled",
+            "respond_unrealated":"respond_unrealated",
         },
     )
+    graph_test.add_edge("respond_undevopled", END)
+    graph_test.add_edge("respond_unrealated", END)
 
     ## 재료 변경 처리: 옵션 초기화 -> (첫 턴 추출 / 변경 diff 추출) -> 목록 반영
     graph_test.add_conditional_edges(
@@ -91,7 +97,6 @@ def build():
             "preview_recipe_options": "preview_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
             "respond_infeasible": "respond_infeasible",
-            "undeveloped": "undeveloped",
         },
     )
     graph_test.add_edge("respond_infeasible", END)
