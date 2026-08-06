@@ -24,4 +24,23 @@ dependencies = [
     "pypdf>=6.14.2",
     "sentence-transformers>=5.6.1",
     "tiktoken>=0.13.0",
+    "torch>=1.11.0",
 ]
+
+## torch는 원래 sentence-transformers(BGE-m3 임베딩)가 끌어오는 간접 의존성이었는데,
+## 기본 PyPI 배포판은 리눅스에서 전체 NVIDIA CUDA 툴킷(cublas/cusolver/cufft 등)을
+## 같이 설치한다. 이 프로젝트는 임베딩을 항상 device="cpu"로만 쓰므로(GPU 없는 EC2 배포)
+## CUDA 관련 패키지는 전부 불필요하게 이미지 용량만 수 GB(실측 약 10GB+) 키운다.
+## PyTorch가 공식 배포하는 CPU 전용 휠 인덱스로 리눅스에서만 바꿔치기해서 막는다.
+## (tool.uv.sources는 간접 의존성에는 적용되지 않아서, torch를 여기 직접 의존성으로
+##  명시해야만 이 오버라이드가 실제로 적용됨 — 버전 하한은 sentence-transformers가
+##  요구하는 것과 동일하게 맞춰 별도 제약을 추가하지 않음)
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cpu", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
