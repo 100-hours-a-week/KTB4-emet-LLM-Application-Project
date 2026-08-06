@@ -64,6 +64,23 @@ async def extract_ingredient_update(state: OverrallState):
     return {"ingredient_update": result}
 
 
+## base에 candidates를 이어붙이되, 정규화된 대표명 기준으로 이미 나온 재료는 건너뛴다.
+## candidates 안에서 서로 동의어인 항목끼리도 걸러진다
+## (예: "계란이랑 달걀 있어"처럼 한 발화 안에 동의어 두 개가 같이 들어와도 하나만 남음).
+## base 쪽 집합은 매 항목 추가 시 갱신되므로, 이전에는 diff 모드에서만 이렇게 처리되고
+## replace 모드는 중복 제거가 아예 없었던 것도 함께 해결된다.
+def _merge_deduped(base: list, candidates: list) -> list:
+    seen = {normalize_ingredient_name(ing.name) for ing in base}
+    merged = list(base)
+    for ing in candidates:
+        norm = normalize_ingredient_name(ing.name)
+        if norm in seen:
+            continue
+        merged.append(ing)
+        seen.add(norm)
+    return merged
+
+
 ## diff를 기존 목록에 적용해 최종 ingredient_list 계산 (LLM 호출 없음 — 순수 코드)
 ## 중복 제거는 이 노드에서만 처리 (extract 계열 노드는 중복을 신경 쓸 필요 없음)
 def apply_ingredient_modification(state: OverrallState):
@@ -73,7 +90,7 @@ def apply_ingredient_modification(state: OverrallState):
     previous = state.get("ingredient_list")
 
     if update.mode == "replace" or not (previous and previous.ingredients):
-        final_list = IngredientList(ingredients=list(update.add))
+        final_list = IngredientList(ingredients=_merge_deduped([], update.add))
 
     else:
         ## 제거 먼저, 추가 나중: 같은 이름 재교체("계란 2개로 바꿔줘")도 자연스럽게 처리
@@ -84,11 +101,7 @@ def apply_ingredient_modification(state: OverrallState):
             if normalize_ingredient_name(ing.name) not in remove_set
         ]
 
-        existing_names = {normalize_ingredient_name(ing.name) for ing in kept}
-        merged = kept + [
-            ing for ing in update.add
-            if normalize_ingredient_name(ing.name) not in existing_names
-        ]
+        merged = _merge_deduped(kept, update.add)
         final_list = IngredientList(ingredients=merged)
 
     print(f"최종 재료 목록: {final_list.ingredients_name}")
