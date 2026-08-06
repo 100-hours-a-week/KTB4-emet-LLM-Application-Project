@@ -10,7 +10,6 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-import graph
 from rag.config import get_db_path
 from rag.vectorstore import sync_vdb_from_s3
 
@@ -34,7 +33,6 @@ NODE_DISPLAY_NAMES = {
     "apply_ingredient_modification": "재료 목록을 업데이트하는 중",
     "ingredient_analysis": "요리 가능 여부를 확인하는 중",
     "retreiver_recipes": "비슷한 레시피를 찾는 중",
-    "build_rag_recipe_options": "찾은 레시피를 정리하는 중",
     "rag_adequacy_check": "레시피 적합성을 검토하는 중",
     "preview_recipe_options": "새로운 요리 아이디어를 만드는 중",
     "present_recipe_options": "선택지를 정리하는 중",
@@ -68,6 +66,12 @@ async def _sweep_idle_threads(app: FastAPI):
 async def lifespan(app: FastAPI):
     ## 그래프 빌드(=VDB 로드) 전에 S3에서 최신 VDB를 먼저 받아옴
     sync_vdb_from_s3(get_db_path())
+
+    ## graph를 import하는 순간 graph.py 최상단의 init_vdb()가 실행되어 VDB가 로드/생성된다.
+    ## 이 import를 파일 최상단에 두면 main.py 로드 시점(=S3 다운로드보다 먼저)에 실행돼버려서
+    ## 방금 받은 최신 VDB가 아니라 그 이전 로컬 상태로 그래프가 구성되는 문제가 있었다.
+    ## 반드시 sync_vdb_from_s3() 이후에 와야 한다.
+    import graph
 
     app.state.rag = graph.build()
     app.state.thread_last_seen = {}

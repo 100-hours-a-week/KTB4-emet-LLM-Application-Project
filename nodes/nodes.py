@@ -62,8 +62,7 @@ def rag_adequacy_check(state: OverrallState):
         rag_recipes, user_ingredient_names, max_count=PREVIEW_TOTAL_COUNT
     )
  
-    ## 적합 RAG 레시피들을 RecipeOption 형태로 변환 (build_rag_recipe_options의
-    ## 변환 로직을 재사용. compute_missing_ingredients도 여기서 다시 적용)
+    ## 적합 판정된 RAG 레시피들만 RecipeOption 형태로 변환
     rag_options = []
     for recipe in selected_recipes:
         recipe_names = {item[0] for item in recipe.ingredients if item}

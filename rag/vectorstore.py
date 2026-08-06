@@ -85,7 +85,17 @@ class VectorStore:
         print(f"VDB doc is updated. (신규 문서 {len(fresh)}개 추가)")
 
     def _sync_to_s3_if_configured(self, persist_directory):
-        """VDB_S3_BUCKET 환경변수가 설정된 경우에만 S3로 동기화. 로컬 전용 실행 시엔 자동으로 건너뜀."""
+        """VDB_S3_UPLOAD=1 이고 VDB_S3_BUCKET이 설정된 경우에만 S3로 업로드.
+
+        서버가 뜰 때마다(=매 요청 때가 아니라 기동 시 1회) 무조건 업로드하면
+        기동 직전에 이미 sync_vdb_from_s3()로 다운로드한 내용을 그대로 다시 올리는
+        불필요한 왕복이 매번 발생해 기동 시간이 늘어난다. 업로드는 실제로 문서가
+        추가/변경되는 data_pipeline 실행 시에만 필요하므로 기본은 건너뛴다.
+        """
+        if os.getenv("VDB_S3_UPLOAD") != "1":
+            print("VDB_S3_UPLOAD != 1 -> S3 업로드 건너뜀 (서버 기동 시 정상 동작)")
+            return
+
         bucket = os.getenv("VDB_S3_BUCKET")
         if not bucket:
             print("VDB_S3_BUCKET 미설정 -> S3 동기화 건너뜀")

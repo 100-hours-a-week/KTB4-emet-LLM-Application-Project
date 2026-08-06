@@ -27,6 +27,7 @@ query(랜덤 키워드) -> collect -> pdf -> structure -> vdb
 import argparse
 import asyncio
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -175,6 +176,9 @@ async def structure_stage(pdf_q: asyncio.Queue, vdb_q: asyncio.Queue, counts: di
 async def vdb_stage(vdb_q: asyncio.Queue) -> str:
     try:
         print("\n[VDB] 벡터스토어 초기화")
+        ## 서버(graph.py)는 기동 시 불필요한 업로드를 건너뛰도록 기본값이 꺼져 있지만,
+        ## 이 파이프라인은 실제로 VDB를 새로 만드는 쪽이므로 여기서는 업로드를 켠다.
+        os.environ["VDB_S3_UPLOAD"] = "1"
         embedding = get_embedding()
         db_path = get_db_path()
         ## 기존 structured_recipes 전체로 초기화 -> VectorStore가 신규분만 골라 add

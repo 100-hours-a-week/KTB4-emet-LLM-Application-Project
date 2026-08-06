@@ -54,7 +54,6 @@ def build():
     graph_test.add_node("ingredient_analysis", analysis.ingredient_analysis)
     graph_test.add_node("respond_infeasible", nodes.respond_infeasible)
     graph_test.add_node("preview_recipe_options", preview_recipes.preview_recipe_options)
-    graph_test.add_node("build_rag_recipe_options", preview_recipes.build_rag_recipe_options)
     graph_test.add_node("rag_adequacy_check", nodes.rag_adequacy_check)
     graph_test.add_node("present_recipe_options", preview_recipes.present_recipe_options)
     
@@ -101,10 +100,9 @@ def build():
     graph_test.add_edge("respond_infeasible", END)
 
     
-    graph_test.add_edge("retreiver_recipes", "build_rag_recipe_options")
- 
+    graph_test.add_edge("retreiver_recipes", "rag_adequacy_check")
+
     graph_test.add_edge("preview_recipe_options", "present_recipe_options")
-    graph_test.add_edge("build_rag_recipe_options", "rag_adequacy_check")
     graph_test.add_edge("rag_adequacy_check", "preview_recipe_options")
     graph_test.add_edge("present_recipe_options", END)
  
