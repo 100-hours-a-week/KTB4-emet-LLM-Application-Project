@@ -11,6 +11,7 @@ from pydantic import ValidationError
 import llm
 from templates import recipes_prompts
 from states import OverrallState
+from rag.config import RECIPE_SITE_NAME, RECIPE_URL_TEMPLATE
 from . import preview_recipes
 
 from dotenv import load_dotenv
@@ -169,6 +170,12 @@ def fetch_rag_recipe(state: OverrallState):
         f"재료: {ingredients_str}\n\n"
         f"{matched.steps}"
     )
+
+    ## RAG 출처 레시피에만 출처를 붙인다 (LLM 생성분은 finalize_recipe 경로라 여기 안 옴).
+    ## recipe_id가 원본 사이트의 레시피 ID와 그대로 일치해서 정확한 링크를 만들 수 있음.
+    if matched.recipe_id:
+        source_url = RECIPE_URL_TEMPLATE.format(recipe_id=matched.recipe_id)
+        answer += f"\n\n출처: {RECIPE_SITE_NAME} ({source_url})"
 
     return {"structured_recipe": matched, "answer": answer}
 

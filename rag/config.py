@@ -11,6 +11,11 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 COLLECTION_NAME = "local_embedding_bge_m3_vdb"  ## 08_04 updated
 RETRIEVER_K = 12
 
+## RAG 레시피 출처 표기용. data_pipeline/collect_recipe_links.py가 전부 이 사이트에서만
+## 수집하고, recipe_id가 원본 URL의 레시피 ID와 그대로 일치하므로 상수 하나로 충분하다.
+RECIPE_SITE_NAME = "만개의레시피"
+RECIPE_URL_TEMPLATE = "https://www.10000recipe.com/recipe/{recipe_id}"
+
 embedding = LocalBGEEmbeddings(model_name="BAAI/bge-m3", device="cpu")
 
 def get_embedding():
