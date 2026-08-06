@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from glob import glob
 from pathlib import Path
+import asyncio
 import json
 import os
+import time
 import uuid
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
@@ -14,6 +16,11 @@ from rag.vectorstore import sync_vdb_from_s3
 
 from dotenv import load_dotenv
 load_dotenv()
+
+## MemorySaver는 프로세스가 떠 있는 동안 스레드별 체크포인트가 계속 쌓이기만 하므로,
+## 일정 시간 활동이 없는 스레드는 주기적으로 지워서 메모리 누적을 막는다.
+SESSION_IDLE_TTL_SECONDS = int(os.getenv("SESSION_IDLE_TTL_SECONDS", 7200))  # 2시간
+SESSION_SWEEP_INTERVAL_SECONDS = int(os.getenv("SESSION_SWEEP_INTERVAL_SECONDS", 1800))  # 30분
 
 ## 그래프 진입 노드 (START -> query_analysis 고정 경로)
 ENTRY_NODE = "query_analysis"
@@ -40,13 +47,39 @@ NODE_DISPLAY_NAMES = {
     "undeveloped": "응답을 준비하는 중",
 }
 
+async def _sweep_idle_threads(app: FastAPI):
+    """일정 시간 활동이 없던 thread_id를 체크포인터에서 정리하는 백그라운드 루프."""
+    while True:
+        await asyncio.sleep(SESSION_SWEEP_INTERVAL_SECONDS)
+        now = time.time()
+        idle_thread_ids = [
+            thread_id
+            for thread_id, last_seen in app.state.thread_last_seen.items()
+            if now - last_seen > SESSION_IDLE_TTL_SECONDS
+        ]
+        for thread_id in idle_thread_ids:
+            await app.state.rag.checkpointer.adelete_thread(thread_id)
+            app.state.thread_last_seen.pop(thread_id, None)
+        if idle_thread_ids:
+            print(f"[session cleanup] 유휴 스레드 {len(idle_thread_ids)}개 정리: {idle_thread_ids}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ## 그래프 빌드(=VDB 로드) 전에 S3에서 최신 VDB를 먼저 받아옴
     sync_vdb_from_s3(get_db_path())
 
     app.state.rag = graph.build()
+    app.state.thread_last_seen = {}
+    sweep_task = asyncio.create_task(_sweep_idle_threads(app))
+
     yield
+
+    sweep_task.cancel()
+    try:
+        await sweep_task
+    except asyncio.CancelledError:
+        pass
     app.state.rag.get_graph().draw_mermaid_png(output_file_path="graph.png")
 
 
@@ -83,6 +116,7 @@ async def query(req: QueryRequest):
     async def event_generator():
         thread_id = req.thread_id or str(uuid.uuid4())
         config = {"configurable": {"thread_id": thread_id}}
+        app.state.thread_last_seen[thread_id] = time.time()
 
         ## 첫 노드(query_analysis) 실행 중에는 astream이 아무 청크도 내보내지 않아
         ## 화면이 멈춘 것처럼 보이므로, 진입 노드 문구를 먼저 한 번 보내둔다.
@@ -117,3 +151,11 @@ async def query(req: QueryRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.delete("/session/{thread_id}")
+async def delete_session(thread_id: str):
+    """사용자가 새 대화를 시작할 때, 이전 스레드의 체크포인트를 명시적으로 정리."""
+    await app.state.rag.checkpointer.adelete_thread(thread_id)
+    app.state.thread_last_seen.pop(thread_id, None)
+    return {"ok": True}

@@ -220,6 +220,9 @@
   });
 
   newChatEl.addEventListener("click", () => {
+    if (threadId) {
+      fetch("/session/" + threadId, { method: "DELETE" }).catch(() => {});
+    }
     threadId = null;
     messagesEl.innerHTML = "";
     addMessage("안녕하세요! 어떤 요리가 궁금하신가요?", "bot");

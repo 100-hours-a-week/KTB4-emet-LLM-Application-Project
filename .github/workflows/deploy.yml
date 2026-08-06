@@ -46,6 +46,7 @@ jobs:
             docker rm chatbot-container || true
             docker run -d \
               --name chatbot-container \
+              --restart unless-stopped \
               -p 8000:8000 \
               --env-file /home/ubuntu/.env \
               -v /home/ubuntu/data/vdb:/app/data/vdb \
