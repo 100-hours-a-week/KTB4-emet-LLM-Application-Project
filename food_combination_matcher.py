@@ -12,7 +12,7 @@ import json
 from itertools import combinations
 from pathlib import Path
 
-from ingredient_synonyms import normalize_ingredient_name
+from ingredient_synonyms import normalize_ingredient_name, HYPERNYM_MAP
 from ingredient_categories import get_ingredient_categories, CATEGORY_LABEL_TO_TAG
 
 _DATA_PATH = Path(__file__).parent / "food_combination_taboo.json"
@@ -23,9 +23,22 @@ with open(_DATA_PATH, encoding="utf-8") as f:
 _COMBINATIONS = _DATA["combinations"]
 _CATEGORY_RULES = _DATA["generalized_category_rules"]
 
+
+def _normalize_for_taboo(name: str) -> str:
+    """
+    궁합 매칭 전용 정규화: 동의어 정규화 후 상위개념까지 반영해서 "묵은지"와 "김치"를
+    같은 재료로 취급한다. ingredient_synonyms.is_ingredient_satisfied()는 "보유 재료가
+    요구 재료를 충족하는가"라는 방향성 있는 판단이라 그대로 재사용할 수 없어서,
+    방향 없는 동일성 비교(궁합 쌍 매칭)에 맞는 별도 헬퍼로 둔다.
+    """
+    norm = normalize_ingredient_name(name)
+    hypernym = HYPERNYM_MAP.get(norm)
+    return normalize_ingredient_name(hypernym) if hypernym else norm
+
+
 ## combinations를 빠른 조회를 위해 {frozenset({a, b}): 항목} 형태로 인덱싱
 _PAIR_INDEX = {
-    frozenset(normalize_ingredient_name(n) for n in item["pair"]): item
+    frozenset(_normalize_for_taboo(n) for n in item["pair"]): item
     for item in _COMBINATIONS
 }
 
@@ -35,7 +48,7 @@ def check_pair_taboo(ingredient_list: list[str]) -> list[dict]:
     주어진 재료 리스트 안에서, 사전에 등록된 '구체적 재료 쌍' 궁합이 있는지 찾는다.
     반환: [{"pair": [...], "reason": ..., "level": ..., "note": ...}, ...]
     """
-    normalized = [normalize_ingredient_name(n) for n in ingredient_list]
+    normalized = [_normalize_for_taboo(n) for n in ingredient_list]
     found = []
     seen_keys = set()
 
@@ -64,9 +77,16 @@ def check_category_taboo(ingredient_list: list[str]) -> list[dict]:
     found = []
     for rule in _CATEGORY_RULES:
         labels = rule["categories"]
-        tags_needed = {CATEGORY_LABEL_TO_TAG.get(label) for label in labels}
-        tags_needed.discard(None)  ## "특정 약물/조합" 같은 참고용 라벨은 매칭 대상에서 제외
+        tag_values = [CATEGORY_LABEL_TO_TAG.get(label) for label in labels]
 
+        ## "특정 약물/조합"처럼 재료 카테고리로 표현할 수 없는 라벨이 하나라도 섞여 있으면
+        ## 그 라벨만 빼고 나머지 라벨만으로 판정하는 건 원래 규칙보다 느슨한 별개의 조건이
+        ## 된다 (예: "티라민 식품 + 특정 약물" 규칙이 "티라민 식품 2개"로 변질됨).
+        ## 약물 정보는 재료만으로 알 수 없으므로 이런 규칙은 아예 평가하지 않는다.
+        if None in tag_values:
+            continue
+
+        tags_needed = set(tag_values)
         if not tags_needed:
             continue
 

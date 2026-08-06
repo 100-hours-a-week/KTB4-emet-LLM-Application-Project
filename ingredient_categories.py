@@ -21,6 +21,8 @@ BENZOATE_PRESERVATIVE = "benzoate"   # 안식향산나트륨 등 방부제
 HIGH_FAT_CHOLESTEROL = "high_fat"    # 고지방/고콜레스테롤
 SPICY = "spicy"                      # 매운 음식 (캡사이신)
 OXALATE = "oxalate"                  # 옥살산(수산)
+MILK = "milk"                        # 우유 (CALCIUM과 별도. "매운 음식+우유" 규칙 전용 —
+                                      # CALCIUM을 그대로 쓰면 두부/멸치/미역 등도 걸려서 오탐이 남)
 
 ## 대표명(normalize_ingredient_name 결과 기준) -> 카테고리 태그 집합
 ## 재료 하나가 여러 카테고리에 동시에 속할 수 있음 (예: 커피 = 탄닌 + 카페인)
@@ -40,7 +42,7 @@ INGREDIENT_CATEGORIES: dict[str, set[str]] = {
     "돼지고기": {PURINE},  # 삼겹살+소주 조합 커버
 
     "치즈": {CALCIUM, TYRAMINE_FERMENTED},
-    "우유": {CALCIUM},
+    "우유": {CALCIUM, MILK},
     "멸치": {CALCIUM},
     "두부": {CALCIUM},
     "미역": {CALCIUM},
@@ -76,7 +78,7 @@ CATEGORY_LABEL_TO_TAG = {
     "비타민C 함유 음료": VITAMIN_C,
     "고지방·고콜레스테롤 조합": HIGH_FAT_CHOLESTEROL,
     "매운 음식": SPICY,
-    "우유": CALCIUM,
+    "우유": MILK,
 }
 
 
