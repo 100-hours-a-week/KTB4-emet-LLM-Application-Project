@@ -43,6 +43,11 @@ NODE_DISPLAY_NAMES = {
     "respond_undevopled": "지원 가능한 요청인지 확인하는 중",
     "respond_unrealated": "요청 내용을 확인하는 중",
     "undeveloped": "응답을 준비하는 중",
+    "search_by_name": "요청하신 요리를 검색하는 중",
+    "filter_valid_candidates": "검색 결과를 정리하는 중",
+    "judge_name_match": "검색 결과가 맞는지 확인하는 중",
+    "resolve_rag_name_match": "찾은 레시피를 정리하는 중",
+    "generate_recipe_by_name": "레시피를 새로 만드는 중",
 }
 
 async def _sweep_idle_threads(app: FastAPI):

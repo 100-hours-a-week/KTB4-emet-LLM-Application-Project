@@ -57,6 +57,22 @@ def format_ingredient(item):
     return f"{name} {amount}{unit}".strip()
 
 
+## RAG 검색 결과(Document 리스트)를 StructuredRecipe 리스트로 변환.
+## page_content는 StructuredRecipe 필드 그대로의 JSON 문자열이므로 파싱만 하면 됨.
+## retreiver_recipes(재료 기반 검색)와 name_search.search_by_name(이름 기반 검색)이 공유.
+def parse_recipe_docs(docs) -> list[StructuredRecipe]:
+    parsed = []
+    for d in docs:
+        try:
+            data = json.loads(d.page_content)
+            parsed.append(StructuredRecipe(**data))
+        except (json.JSONDecodeError, ValidationError) as e:
+            ## 파싱 실패한 문서는 건너뛰고 계속 진행 (전체 검색을 중단시키지 않음)
+            print(f"[WARN] 레시피 파싱 실패, 스킵: {e}")
+            continue
+    return parsed
+
+
 ## 재료 기반 레시피 검색
 async def retreiver_recipes(state: OverrallState):
     print("\n현재노드: retreiver_recipes\n")
@@ -82,19 +98,7 @@ async def retreiver_recipes(state: OverrallState):
     print(f"[DEBUG] 검색된 레시피 수: {len(docs)}")
     print(f"[DEBUG] 레시피 미리보기: {[d.page_content[:50] for d in docs]}")
 
-    ## page_content는 StructuredRecipe 필드 그대로의 JSON 문자열이므로 파싱해서
-    ## StructuredRecipe 인스턴스로 변환한다.
-    recipes = []
-    for d in docs:
-        try:
-            data = json.loads(d.page_content)
-            recipes.append(StructuredRecipe(**data))
-        except (json.JSONDecodeError, ValidationError) as e:
-            ## 파싱 실패한 문서는 건너뛰고 계속 진행 (전체 검색을 중단시키지 않음)
-            print(f"[WARN] 레시피 파싱 실패, 스킵: {e}")
-            continue
-
-    return {"retrieved_recipes": RecipeList(recipes=recipes)}
+    return {"retrieved_recipes": RecipeList(recipes=parse_recipe_docs(docs))}
 
 
 ## 사용자의 선택 발화를 LLM이 바로 판단해 번호로 매칭

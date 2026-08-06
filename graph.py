@@ -11,7 +11,7 @@ from states import OverrallState
 from rag.config import COLLECTION_NAME, RETRIEVER_K, get_embedding, get_db_path
 from rag.vectorstore import VectorStore
 
-from nodes import analysis, ingredients, preview_recipes, recipes
+from nodes import analysis, ingredients, preview_recipes, recipes, name_search
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 ## 실행 위치(cwd)와 무관하게 프로젝트 루트 기준으로 .env 로딩
@@ -61,6 +61,13 @@ def build():
     graph_test.add_node("finalize_recipe", recipes.finalize_recipe)
     graph_test.add_node("fetch_rag_recipe", recipes.fetch_rag_recipe)
 
+    ## 요리 이름 직접 검색 흐름
+    graph_test.add_node("search_by_name", name_search.search_by_name)
+    graph_test.add_node("filter_valid_candidates", name_search.filter_valid_candidates)
+    graph_test.add_node("judge_name_match", name_search.judge_name_match)
+    graph_test.add_node("resolve_rag_name_match", name_search.resolve_rag_name_match)
+    graph_test.add_node("generate_recipe_by_name", name_search.generate_recipe_by_name)
+
     
     graph_test.add_edge(START, "query_analysis")
     graph_test.add_conditional_edges(
@@ -70,6 +77,7 @@ def build():
             "reset_recipe_options": "reset_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
             "select_recipe_option": "select_recipe_option",
+            "search_by_name": "search_by_name",
             "respond_undevopled": "respond_undevopled",
             "respond_unrealated":"respond_unrealated",
         },
@@ -105,6 +113,20 @@ def build():
     graph_test.add_edge("preview_recipe_options", "present_recipe_options")
     graph_test.add_edge("rag_adequacy_check", "preview_recipe_options")
     graph_test.add_edge("present_recipe_options", END)
+
+    ## 요리 이름 직접 검색 흐름: RAG 검색 -> 이름 일치 판정 -> (적합/부적합) -> 프리뷰
+    graph_test.add_edge("search_by_name", "filter_valid_candidates")
+    graph_test.add_edge("filter_valid_candidates", "judge_name_match")
+    graph_test.add_conditional_edges(
+        "judge_name_match",
+        name_search.conditional_name_match,
+        path_map={
+            "resolve_rag_name_match": "resolve_rag_name_match",
+            "generate_recipe_by_name": "generate_recipe_by_name",
+        },
+    )
+    graph_test.add_edge("resolve_rag_name_match", "present_recipe_options")
+    graph_test.add_edge("generate_recipe_by_name", "present_recipe_options")
  
     graph_test.add_conditional_edges(
         "select_recipe_option",
@@ -131,6 +153,7 @@ def build():
                 ("schems", "IngredientUpdate"),
                 ("schems", "IngredientAnalysisResult"),
                 ("schems", "QueryType"),
+                ("schems", "NameMatchResult"),
             ]
         )
     )

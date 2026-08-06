@@ -31,6 +31,8 @@ class OverrallState(MessagesState):
     ingredient_analysis_result: schems.IngredientAnalysisResult
     ## 검색된 레시피 리스트()
     retrieved_recipes: schems.RecipeList
+    ## 레시피 이름 검색 흐름 전용: RAG 후보들과 요청 요리명이 같은지 판정한 결과
+    name_match_result: schems.NameMatchResult
     ## RAG 적정성 평가(rag_adequacy_check)를 통과한 레시피 옵션 (preview_recipe_options가 LLM 생성 시 제목 중복 방지용으로 사용)
     rag_options: List[schems.RecipeOption]
     ## RAG 적정성 평가에서 계산한, LLM이 추가로 생성해야 할 개수

@@ -51,12 +51,16 @@ class RecipeList(BaseModel):
 
 ## query_analysis
 class QueryType(BaseModel):
-    type: Literal["레시피 추천", "레시피 선택", "NONETYPE", "NONE"] = Field(
+    type: Literal["레시피 추천", "레시피 선택", "레시피 이름 검색", "NONETYPE", "NONE"] = Field(
         description="사용자 질의의 분류 타입"
     )
     reason: str | None = Field(
         default= None,
         description="이 타입으로 판단한 이유, 'NONETYPE', 'NONE'인 경우 사용자에게 출력"
+    )
+    dish_name: str | None = Field(
+        default=None,
+        description="type이 '레시피 이름 검색'일 때만 채움. 사용자가 요청한 정확한 요리 이름."
     )
 
 class Ingredient(BaseModel):
@@ -152,5 +156,19 @@ class OptionMatchResult(BaseModel):
             "사용자가 최종적으로 가리키는 옵션의 번호 (목록에 표시된 1부터 시작하는 번호). "
             "'2번 말고 3번'처럼 부정 표현이 섞여 있으면 최종적으로 원하는 번호를 반환. "
             "모호하거나 목록에 없는 요리를 말하면 반드시 null."
+        ),
+    )
+
+
+class NameMatchResult(BaseModel):
+    """RAG로 찾은 후보 레시피 제목들 중, 사용자가 요청한 요리 이름과 실질적으로
+    같은 것들이 있는지 LLM이 판단한 결과 (레시피 이름 검색 흐름 전용)."""
+    matched_recipe_ids: List[str] = Field(
+        default_factory=list,
+        description=(
+            "후보 중 사용자가 요청한 요리와 같다고 판단되는 것들의 recipe_id 목록. "
+            "표현 차이(축약어, 재료 순서, 지역명 등)는 같은 요리로 봐도 되고, "
+            "여러 후보가 각기 다른 버전의 같은 요리라면 전부 포함하세요. "
+            "같다고 볼 수 있는 후보가 하나도 없다면 반드시 빈 리스트."
         ),
     )

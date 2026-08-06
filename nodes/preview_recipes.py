@@ -82,21 +82,35 @@ def present_recipe_options(state: OverrallState):
     print("\n현재노드: present_recipe_options\n")
 
     options = state["recipe_options"]
+    ## 요리 이름 직접 검색 흐름은 "보유 재료 대비 부족분"이 아니라 레시피의 전체
+    ## 재료를 보여줘야 하고, 사용자가 보유 재료를 알려준 적이 없어 ingredient_list도
+    ## 없다 (name_search.py가 needed_ingredients 필드에 전체 재료를 채워서 넘김).
+    is_name_search = state["query_type"].type == "레시피 이름 검색"
 
     if not options:
+        if is_name_search:
+            return {"answer": "죄송해요, 요청하신 요리의 레시피를 찾지 못했어요. 다시 시도해 주세요."}
         return {
             "answer": "죄송해요, 지금 가진 재료로 제안할 수 있는 요리를 찾지 못했어요."
         }
-    ## 현재 보유 재료 목록
-    current_ingredients = state["ingredient_list"].ingredients_name
-    ingredients_line = f"📋 현재 재료: {', '.join(current_ingredients)}\n"
+
+    lines = []
+    if is_name_search:
+        lines.append("요청하신 요리를 찾았어요. 이걸로 만들어드릴까요?\n")
+    else:
+        ## 현재 보유 재료 목록
+        current_ingredients = state["ingredient_list"].ingredients_name
+        lines.append(f"📋 현재 재료: {', '.join(current_ingredients)}\n")
+        lines.append("다음 중 어떤 요리로 하시겠어요?\n")
 
     ## 추가재료가 없는(=바로 만들 수 있는) 옵션을 우선 배치(추가재료가 적은순)
     sorted_options = sort_options(options)
     sorted_options = sorted_options[:PREVIEW_TOTAL_COUNT]
-    lines = [ingredients_line, "다음 중 어떤 요리로 하시겠어요?\n"]
     for idx, option in enumerate(sorted_options, start=1):
-        if option.needed_ingredients:
+        if is_name_search:
+            ingredients_str = ", ".join(option.needed_ingredients)
+            lines.append(f"{idx}. {option.title} (재료: {ingredients_str})")
+        elif option.needed_ingredients:
             needed_str = ", ".join(option.needed_ingredients)
             lines.append(f"{idx}. {option.title} (추가 재료 필요: {needed_str})")
         else:

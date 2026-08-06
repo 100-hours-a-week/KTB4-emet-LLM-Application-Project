@@ -51,6 +51,11 @@ def conditional_query_type(state: OverrallState):
         return "reset_recipe_options"
     elif qurey_type == "레시피 선택":
             return "select_recipe_option"
+    elif qurey_type == "레시피 이름 검색":
+        ## dish_name 추출에 실패하면(방어적으로) 검색을 시도하지 않고 안내로 빠진다
+        if state["query_type"].dish_name:
+            return "search_by_name"
+        return "respond_unrealated"
     elif qurey_type == "NONETYPE":
         return "respond_undevopled"
     elif qurey_type == "NONE":
@@ -59,7 +64,7 @@ def conditional_query_type(state: OverrallState):
     return "respond_unrealated"
 
 ## 재료 조합 경고 메시지 리스트 생성 (LLM 호출 없음 — 순수 코드)
-def _build_combination_warnings(ingredient_names: list[str]) -> list[str] | None:
+def build_combination_warnings(ingredient_names: list[str]) -> list[str] | None:
     result = check_all(ingredient_names)
     warnings = []
 
@@ -88,7 +93,7 @@ def ingredient_analysis(state: OverrallState):
     )
 
     ## 궁합 체크는 feasibility 판정과 무관하게 항상 수행 (LLM 호출 없음, 순수 코드)
-    combination_warnings = _build_combination_warnings(ingredient_names)
+    combination_warnings = build_combination_warnings(ingredient_names)
 
     ingredient_analysis_result = IngredientAnalysisResult(
         feasibility=result.feasibility if result else "not_cookable",
