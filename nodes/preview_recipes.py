@@ -13,7 +13,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from ingredient_synonyms import is_ingredient_satisfied, SPECIALTY_INGREDIENTS
+from ingredient_synonyms import is_ingredient_satisfied, normalize_ingredient_name, SPECIALTY_INGREDIENTS
 
 ## 적합 판정 시 threshold(%) 기준
 PREVIEW_TOTAL_COUNT = int(os.getenv("PREVIEW_TOTAL_COUNT")) 
@@ -129,8 +129,11 @@ def evaluate_rag_recipe(recipe_ingredient_names: list[str], user_ingredient_name
         return "부적합"
  
     ## 1단계: 특수 재료 게이트 (절대적 거부, 나머지 계산 안 함)
+    ## 다른 모든 재료명 비교 지점과 동일하게 정규화를 거친다. 지금은 SPECIALTY_INGREDIENTS에
+    ## 등록된 동의어가 없어 결과가 바뀌진 않지만, 표기 변형이 등록되는 순간 게이트가
+    ## 무력화되지 않도록 미리 맞춰둔다.
     for ing in recipe_ingredient_names:
-        if ing in SPECIALTY_INGREDIENTS:
+        if normalize_ingredient_name(ing) in SPECIALTY_INGREDIENTS:
             return "부적합"
  
     ## 2단계: 재료 수가 적으면 간이 판정 (하나라도 맞으면 통과)
