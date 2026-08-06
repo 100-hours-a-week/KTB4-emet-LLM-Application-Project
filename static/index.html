@@ -181,11 +181,34 @@
       });
       if (!res.ok) throw new Error("서버 오류 (" + res.status + ")");
 
-      const data = await res.json();
-      threadId = data.thread_id;
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let readerDone = false;
 
-      loadingEl.classList.remove("loading");
-      loadingEl.textContent = data.answer;
+      while (!readerDone) {
+        const { done, value } = await reader.read();
+        readerDone = done;
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop(); // 마지막 불완전한 조각은 다음 루프로
+
+        for (const line of events) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = JSON.parse(line.slice(6));
+
+          if (payload.type === "progress") {
+            loadingEl.textContent = payload.status;
+          } else if (payload.type === "final") {
+            threadId = payload.thread_id;
+            loadingEl.classList.remove("loading");
+            loadingEl.textContent = payload.answer;
+          } else if (payload.type === "error") {
+            throw new Error(payload.message);
+          }
+        }
+      }
     } catch (err) {
       loadingEl.remove();
       addMessage("오류가 발생했습니다: " + err.message, "error");

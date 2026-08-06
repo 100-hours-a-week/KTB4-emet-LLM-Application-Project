@@ -112,7 +112,7 @@ def conditional_ingredient_analysis(state: OverrallState):
     print(f"ingredient_analysis_result.feasibility: {feasibility}")
 
     if feasibility in ("directly_cookable", "needs_more_ingredients"):
-        return ["preview_recipe_options", "retreiver_recipes"]
+        return "retreiver_recipes"
 
     elif feasibility == "not_cookable":
         return "respond_infeasible"

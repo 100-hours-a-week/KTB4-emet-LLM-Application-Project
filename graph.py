@@ -94,7 +94,6 @@ def build():
         "ingredient_analysis",
         analysis.conditional_ingredient_analysis,
         path_map={
-            "preview_recipe_options": "preview_recipe_options",
             "retreiver_recipes": "retreiver_recipes",
             "respond_infeasible": "respond_infeasible",
         },
@@ -133,6 +132,7 @@ def build():
                 ("schems", "Ingredient"),
                 ("schems", "IngredientUpdate"),
                 ("schems", "IngredientAnalysisResult"),
+                ("schems", "QueryType"),
             ]
         )
     )
