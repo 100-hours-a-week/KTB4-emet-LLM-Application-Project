@@ -71,6 +71,12 @@ async def retreiver_recipes(state: OverrallState):
 
     search_query = ", ".join(ingredient_names)
     docs = await retriever.ainvoke(search_query)
+
+    ## 검색 결과가 0건이면 아래 docs[0] 접근이 IndexError가 되므로 먼저 빠져나간다
+    if not docs:
+        print("[DEBUG] 검색 결과 없음 -> 빈 레시피 목록 반환")
+        return {"retrieved_recipes": RecipeList(recipes=[])}
+
     print("DEBUG metadata:", docs[0].metadata)
     print(f"[DEBUG] 검색된 레시피 수: {len(docs)}")
     print(f"[DEBUG] 레시피 미리보기: {[d.page_content[:50] for d in docs]}")
@@ -96,7 +102,9 @@ def select_recipe_option(state: OverrallState):
     print("\n현재노드: select_recipe_option\n")
 
     query = state["query"]
-    options = preview_recipes.sort_options(state["recipe_options"])
+    ## present_recipe_options와 정렬 기준뿐 아니라 자르는 개수까지 동일해야
+    ## 번호가 어긋나지 않는다 (이전에는 슬라이스가 없어 화면에 없던 옵션도 매칭 후보가 됐음)
+    options = preview_recipes.sort_options(state["recipe_options"])[:preview_recipes.PREVIEW_TOTAL_COUNT]
 
     ## present_recipe_options가 보여준 번호와 동일한 순서로 번호를 매겨 전달
     option_titles = "\n".join(
