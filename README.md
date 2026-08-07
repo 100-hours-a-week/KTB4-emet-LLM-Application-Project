@@ -6,6 +6,22 @@
 📖 **사용자용 기능/사용 설명서**: [docs/사용설명서/레시피챗봇_사용설명서.md](docs/사용설명서/레시피챗봇_사용설명서.md)
 
 ---
+
+## 기술 스택
+
+| 분류 | 기술 |
+| --- | --- |
+| Backend | Python 3.14 · FastAPI (SSE 스트리밍) · `uv` (패키지 관리) |
+| LLM 오케스트레이션 | LangChain · LangGraph (`StateGraph`, `MemorySaver` 체크포인터) |
+| LLM Provider | Claude(Anthropic) · Google Gemini · vLLM/OpenAI 호환 엔드포인트 (순차 폴백 체인) |
+| 임베딩 / 벡터 검색 | ChromaDB · `sentence-transformers`(로컬 CPU 임베딩, `BAAI/bge-m3`) |
+| 웹 검색 | Tavily (요리 이름 검색 생성 폴백의 실존 여부 판정용, provider 교체 가능한 구조) |
+| 데이터 수집 파이프라인 | Playwright (스크래핑) · `pypdf` (PDF 파싱) |
+| 대화 로그 | SQLite (`conversation_log.py`) |
+| 관측/평가 | LangSmith (트레이싱, `evaluate/`의 trace 분석 스크립트) |
+| 인프라 / 배포 | Docker · GitHub Actions(CI/CD) · AWS EC2 · AWS S3(`boto3`, VDB·로그 백업) · Cloudflare(도메인/DNS) |
+
+---
   
 ## Function
 ### Main
