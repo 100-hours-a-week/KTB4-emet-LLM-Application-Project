@@ -44,17 +44,97 @@
 ---
 
 ## Flowchart
-<img width="2636" height="6070" alt="full_graph_current_korean" src="https://github.com/user-attachments/assets/5070d1ab-864d-481f-8c26-e29c08b87c0e" />
 
-> 그래프 구조가 이후에도 계속 변경되고 있어(요리 이름 검색 흐름 추가 등), 최신 다이어그램은 별도로 갱신 예정.
+> `graph.py`(LangGraph `StateGraph` 정의)를 기준으로 그렸습니다. 서버 종료 시 자동 갱신되는
+> [graph.png](graph.png)가 항상 실제 그래프의 원본이며, 아래 다이어그램은 그 구조를 사람이
+> 읽기 쉬운 한글 라벨로 옮긴 것입니다. `undeveloped` 노드는 예외적인 분류 실패 시의 방어적
+> 폴백 경로라 다이어그램에서는 생략했습니다.
+
+```mermaid
+flowchart TD
+    START(["시작"]) --> QA["질문 분석<br/>query_analysis"]
+
+    QA -- "레시피 추천" --> RESET["재료 옵션 초기화<br/>reset_recipe_options"]
+    QA -- "레시피 선택" --> SELECT["후보 선택 처리<br/>select_recipe_option"]
+    QA -- "레시피 이름 검색<br/>(요리명 추출 성공)" --> SEARCHNAME["이름으로 레시피 검색<br/>search_by_name"]
+    QA -- "레시피 이름 검색<br/>(요리명 추출 실패) /<br/>무관한 질문" --> UNREL["무관한 질문 안내<br/>respond_unrealated"]
+    QA -- "질의 분류 실패" --> UNDEV["미지원 기능 안내<br/>respond_undevopled"]
+
+    RESET -- "이전 재료 없음<br/>(첫 턴)" --> EXTRACT["재료 추출<br/>extract_ingredient"]
+    RESET -- "이전 재료 있음<br/>(재료 변경/재요청)" --> EXTRACTUPD["변경 재료 추출<br/>extract_ingredient_update"]
+    EXTRACT --> APPLY["재료 목록 반영<br/>apply_ingredient_modification"]
+    EXTRACTUPD --> APPLY
+    APPLY --> IA["조리 가능 여부 판단<br/>ingredient_analysis"]
+
+    IA -- "조리 가능 /<br/>재료 추가 필요" --> RAG["RAG 레시피 검색<br/>retreiver_recipes"]
+    IA -- "조리 불가<br/>(핵심 재료 부족)" --> INFEASIBLE["조리 불가 안내<br/>respond_infeasible"]
+
+    RAG --> ADEQ["RAG 적정성 평가<br/>rag_adequacy_check"]
+    ADEQ --> PREVIEW["부족분 LLM 생성<br/>preview_recipe_options"]
+    PREVIEW --> PRESENT["후보 제시<br/>present_recipe_options"]
+
+    SEARCHNAME --> FILTER["정규화 불량 필터링<br/>filter_valid_candidates"]
+    FILTER --> JUDGE["이름 일치 판정<br/>judge_name_match"]
+    JUDGE -- "RAG에 일치 레시피 있음" --> RESOLVE["RAG 일치 결과 정리<br/>resolve_rag_name_match"]
+    JUDGE -- "RAG에 없음" --> GENBYNAME["웹검색 실존판정 + 생성<br/>generate_recipe_by_name"]
+    RESOLVE --> PRESENT
+    GENBYNAME --> PRESENT
+
+    SELECT -- "유효하지 않은 선택" --> ENDNODE(["종료"])
+    SELECT -- "생성된 후보 선택" --> FINALIZE["생성 레시피 확정<br/>finalize_recipe"]
+    SELECT -- "RAG 후보 선택" --> FETCHRAG["RAG 레시피 확정<br/>fetch_rag_recipe"]
+
+    PRESENT --> ENDNODE
+    INFEASIBLE --> ENDNODE
+    UNDEV --> ENDNODE
+    UNREL --> ENDNODE
+    FINALIZE --> ENDNODE
+    FETCHRAG --> ENDNODE
+
+    classDef ingredientFlow fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a;
+    classDef nameSearchFlow fill:#f0fdf4,stroke:#22c55e,color:#14532d;
+    classDef terminalFlow fill:#f9fafb,stroke:#9ca3af,color:#374151;
+    classDef finalizeFlow fill:#fff7ed,stroke:#f97316,color:#7c2d12;
+
+    class RESET,EXTRACT,EXTRACTUPD,APPLY,IA,RAG,ADEQ,PREVIEW ingredientFlow;
+    class SEARCHNAME,FILTER,JUDGE,RESOLVE,GENBYNAME nameSearchFlow;
+    class UNDEV,UNREL,INFEASIBLE,ENDNODE terminalFlow;
+    class SELECT,FINALIZE,FETCHRAG,PRESENT finalizeFlow;
+```
 
 ---
 
 ## Data Pipeline
 
-> 다이어그램 추가 예정 (별도 요청 예정).
+> `data_pipeline/recipe_pipeline.py` 기준. 자세한 옵션/주의사항은
+> [data_pipeline/PIPELINE_사용법.md](data_pipeline/PIPELINE_사용법.md) 참고.
 
-레시피 수집(랜덤 키워드) → PDF 저장 → LLM 구조화 → 벡터스토어(VDB) 저장까지 이어지는 4단계가 asyncio 큐로 연결되어 동시에 처리됩니다. 자세한 실행 방법은 아래 [실행방법 — 데이터 파이프라인](#데이터-파이프라인-레시피-수집기) 참고.
+레시피 수집(랜덤 키워드) → PDF 저장 → LLM 구조화 → 벡터스토어(VDB) 저장까지 이어지는 4단계가
+asyncio 큐로 연결되어 **동시에** 처리됩니다 (한 레시피가 구조화되는 동안 다음 레시피 수집이 이미 진행 중).
+
+```mermaid
+flowchart LR
+    KW["food_keywords.py<br/>(랜덤 키워드 순회)"] --> Q["1. 수집<br/>collect_recipe_links.py"]
+    Q -- "ID 큐" --> P["2. PDF 저장<br/>save_recipes_pdf.py"]
+    P -- "PDF 큐" --> S["3. 구조화<br/>structured.py<br/>(LLM 구조화)"]
+    S -- "JSON 큐" --> V["4. VDB 저장<br/>rag/vectorstore.py"]
+
+    Q -.-> IDS[("collected/<br/>recipe_ids.json")]
+    P -.-> PDFS[("original_recipes/<br/>*.pdf")]
+    S -.-> JSONS[("structured_recipes/<br/>*.json")]
+    V -.-> VDB[("data/vdb/<br/>Chroma 컬렉션")]
+
+    classDef stage fill:#eff6ff,stroke:#3b82f6,color:#1e3a8a;
+    classDef store fill:#f9fafb,stroke:#9ca3af,color:#374151,stroke-dasharray: 3 3;
+    class Q,P,S,V stage;
+    class IDS,PDFS,JSONS,VDB store;
+```
+
+- **중복/재실행 안전**: `structure`/`vdb` 단계는 이미 처리된 항목(같은 `recipe_id`)이면 LLM/임베딩 API를
+  호출하지 않고 무해하게 건너뜁니다 → 파이프라인을 중단 후 재실행해도 토큰 비용이 낭비되지 않습니다.
+- **VDB 반영 시점**: 파이프라인이 저장한 새 레시피는 FastAPI 서버가 시작 시 1회만 VDB를 로드하므로,
+  서버를 **재시작**해야 검색에 반영됩니다.
+- 자세한 실행 방법은 아래 [실행방법 — 데이터 파이프라인](#데이터-파이프라인-레시피-수집기) 참고.
 
 ---
 
