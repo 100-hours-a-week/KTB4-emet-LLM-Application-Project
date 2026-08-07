@@ -4,7 +4,9 @@ KTB 4기 개인 프로젝트
 한국 레시피 데이터를 기반으로 한 LLM 레시피 추천 챗봇 프로젝트의 개발 로드맵입니다.
 사용자가 보유한 재료(필수) 및 선호 조건(원하는 재료, 요리 종류, 칼로리, 제한사항 등 선택)을 입력하면 RAG 파이프라인을 통해 레시피를 추천합니다.
 
-**Tech Stack**: FastAPI · LangGraph · ChromaDB · Google Gemini / Claude (`langchain_google_genai` / `langchain_anthropic`) · 로컬 임베딩(`sentence-transformers`, `BAAI/bge-m3`) · LangSmith · Playwright · `uv`
+**Tech Stack**: FastAPI · LangGraph · ChromaDB · Google Gemini / Claude (`langchain_google_genai` / `langchain_anthropic`) · 로컬 임베딩(`sentence-transformers`, `BAAI/bge-m3`) · Tavily(웹 검색, provider 교체 가능) · SQLite(대화 로그) · LangSmith · Playwright · `uv`
+
+**최종 업데이트: 2026-08-07** (docs/로드맵/, docs/회고록/, docs/트러블슈팅/ 디렉토리로 이동, Milestone 7 반영)
 
 ## Milestone 1: 기본 추천 파이프라인 (MVP)
 
@@ -78,6 +80,26 @@ KTB 4기 개인 프로젝트
 | 안전성 검증 레이어 | 이례적 재료 조합의 생성 결과 규칙 기반 검증 | 레시피 검토(확장 가능성) | 계획 단계 |
 | LLM Provider 마이그레이션 | Google Gemini ↔ Claude API 전환 대응 (`with_structured_output` strict schema 이슈 대응 포함) | `llm.py` | 진행중 |
 
+## Milestone 7: 요리 이름 검색 & 신뢰성 강화 (2026-08-06~07)
+
+| 항목 | 내용 | 관련 노드/파일 | 상태 |
+| --- | --- | --- | --- |
+| 요리 이름 검색 흐름 | 재료 나열 없이 특정 요리명으로 바로 검색·확정. RAG에 같은 요리의 여러 버전이 있으면 전부 후보로 제시 | `search_by_name`, `judge_name_match`, `resolve_rag_name_match` | ✅ 완료 |
+| 정규화 불량 후보 필터링 | title/ingredients/steps 중 하나라도 비어있는 RAG 후보를 이름 판정 전에 제거 (LLM 미사용) | `filter_valid_candidates` | ✅ 완료 |
+| 웹 검색 기반 실존 판정 | RAG 매칭이 없을 때 웹 검색(Tavily)으로 실존 여부를 먼저 확인한 뒤 생성. 근거 없으면 지어내지 않고 안내 | `generate_recipe_by_name`, `rag/web_search.py` | ✅ 완료 |
+| RAG 출처 표기 | RAG로 확정된 레시피 답변에 원본 사이트(만개의레시피) 링크 표기 | `fetch_rag_recipe`, `rag/config.py` | ✅ 완료 |
+| 재요청 시 중복 방지 | "다른 거 없어?" 재요청 시 이전에 보여준 RAG/생성 레시피와 겹치지 않는 새 후보 재계산 | `rag_adequacy_check`, `preview_recipe_options`, `states.py`(`shown_rag_ids`/`shown_titles`) | ✅ 완료 |
+| 질의 분류 버그 수정 | "다른 거 없어?" 등 재요청 표현이 '레시피 선택'으로 오분류되어 위 중복 방지 로직에 도달 못 하던 문제 수정 | `templates/analysis_prompts.py` | ✅ 완료 |
+| VDB S3 버전 동기화 | S3/로컬 버전 마커 비교로 동일 버전이면 다운로드·재임베딩 생략 | `rag/vectorstore.py` | ✅ 완료 |
+| 정규화 불량 RAG 데이터 정리 | 재료 누락 등으로 정규화가 잘못된 원본 60건(PDF/JSON) 삭제 + Chroma orphan 정리 | `data_pipeline/structured_recipes/` | ✅ 완료 |
+| 대화 로그 기록 | 턴별 질의/답변/노드경로/노드별 소요시간/LLM provider별 호출/RAG-생성 여부를 SQLite에 기록, 베타 기간 S3 자동 백업 | `conversation_log.py` | ✅ 완료 |
+| CI/CD 안전장치 | `docker pull` 실패 시 배포 중단, 이미지 prune, GHA 빌드 캐시로 임베딩 모델 재다운로드 방지 | `.github/workflows/deploy.yml` | ✅ 완료 |
+| 배포 이미지 경량화 | 리눅스 배포 이미지에서 불필요한 CUDA 툴킷 전체 설치 제거 (CPU 전용 torch) | `pyproject.toml` | ✅ 완료 |
+| 도메인/EC2 배포 | Cloudflare 도메인 연결, Elastic IP, EC2 배포 파이프라인 구축 | (인프라) | ✅ 완료 |
+| LangSmith trace 분석 스크립트 | 지정 시간대 trace를 다운로드해서 별도 성능 분석에 활용 | `evaluate/export_langsmith_traces.py` | ✅ 완료 |
+| 사용자 사용설명서 | 배포용 기능/사용 설명서 작성 | `docs/사용설명서/` | ✅ 완료 |
+| 레시피 사후 검토 / 재생성 루프 | 생성된 완전한 레시피의 실현 가능성 사후 검증, 실패 시 재시도 | (미착수) | 📋 예정 |
+
 ---
 
 ## Roadmap Status
@@ -124,6 +146,14 @@ KTB 4기 개인 프로젝트
 | 6 | 체크포인터 영구 저장소 전환 | `MemorySaver` → `SqliteSaver`/`PostgresSaver` | 💡 아이디어 |
 | 6 | 피드백 수집 구조 | 사용자 만족도·비선호 사유 등 수집 | 💡 아이디어 |
 | 6 | 모니터링 연동 | 프로덕션 모니터링 및 LangSmith 대시보드 상시 연동 | 💡 아이디어 |
+| 7 | 요리 이름 검색 흐름 | RAG 매칭(여러 버전 동시 제시) + 정규화 불량 필터링 + 웹 검색 실존 판정 생성 폴백 | ✅ 완료 |
+| 7 | RAG 출처 표기 | RAG 확정 레시피에 원본 사이트 링크 표기 | ✅ 완료 |
+| 7 | 재요청 중복 방지 | "다른 거 없어?" 재요청 시 이전과 겹치지 않는 새 후보 재계산 | ✅ 완료 |
+| 7 | VDB S3 버전 동기화 | 버전 마커 비교로 불필요한 재다운로드/재임베딩 생략 | ✅ 완료 |
+| 7 | 대화 로그 시스템 | SQLite 기록 + 베타 기간 S3 자동 백업 | ✅ 완료 |
+| 7 | 배포 이미지 경량화 | CUDA 툴킷 제거, CPU 전용 torch로 전환 | ✅ 완료 |
+| 7 | 도메인/EC2 배포 | Cloudflare 도메인 + Elastic IP + EC2 배포 파이프라인 | ✅ 완료 |
+| 7 | 레시피 사후 검토 | 생성 레시피 실현 가능성 사후 검증, 재시도 루프 | 📋 예정 |
 
 ---
 
@@ -182,14 +212,14 @@ KTB 4기 개인 프로젝트
 | 날짜 | Done | ToDo | TBD |
 |---|---|---|---|
 | 08/03 (월) | | | |
-| 08/04 (화) | - RAG 적정성 평가 도입(특수 재료 게이트 + 점수제, k 5→12 확대) <br> - 임베딩 모델 로컬 전환(`BAAI/bge-m3`, Dockerfile 사전 다운로드) <br> - 완성 레시피 캐싱(`finalized_recipes`) <br> - 체크포인터 msgpack `allowed_msgpack_modules` 미등록으로 인한 `AttributeError` 해결 및 테스트 성공 | | - 프리뷰 레시피 개수가 `PREVIEW_TOTAL_COUNT`와 무관하게 검색 개수만큼 출력되던 버그(원인: 적정성 평가 결과가 최종 출력 경로에 미반영) 발견 및 직접 수정 |
-| MM/DD (수) | | | |
-| MM/DD (목) | | | |
-| MM/DD (금) | | | |
+| 08/04 (화) | - RAG 적정성 평가 도입(특수 재료 게이트 + 점수제, k 5→12 확대) <br> - 임베딩 모델 로컬 전환(`BAAI/bge-m3`, Dockerfile 사전 다운로드) <br> - 완성 레시피 캐싱(`finalized_recipes`) <br> - 체크포인터 msgpack `allowed_msgpack_modules` 미등록으로 인한 `AttributeError` 해결 및 테스트 성공 <br> - 도메인 구매(Cloudflare) 및 EC2 Elastic IP 연결 | | - 프리뷰 레시피 개수가 `PREVIEW_TOTAL_COUNT`와 무관하게 검색 개수만큼 출력되던 버그(원인: 적정성 평가 결과가 최종 출력 경로에 미반영) 발견 및 직접 수정 |
+| 08/05 (수) | - 배포 파이프라인 트러블슈팅 진행 | | |
+| 08/06 (목) | - `bugfix/guard` 브랜치에서 코드 버그 6건 + 배포 스크립트 안전장치(`set -e`) 수정 후 `main` 병합·배포 <br> - 배포 이미지에서 불필요한 CUDA 툴킷 전체 설치 제거(CPU 전용 torch) <br> - GHA 빌드 캐시 적용으로 임베딩 모델 매 배포 재다운로드 방지 <br> - RAG 출처(원본 사이트 링크) 표기 추가 <br> - 요리 이름으로 레시피 1개 확정하는 흐름 최초 구현 <br> - S3 VDB 버전 마커 도입(불필요한 재다운로드/재임베딩 방지) <br> - 정규화 불량(재료 누락) RAG 원본 데이터 발견 및 8건 삭제 | | - 컨테이너가 22시간째 다운돼 있던 것을 뒤늦게 발견해 복구 <br> - EC2 디스크 부족으로 배포 여러 차례 실패 (CUDA 툴킷이 원인이었음) |
+| 08/07 (금) | - 테스트케이스 90개 정리 및 A~F 섹터 기능 테스트(일부 노드 직접 호출) 진행, 문서 오류 3건 발견·수정 <br> - 실제 그래프 전체를 도는 E2E 20케이스 실제로직 테스트 진행 <br> - 재요청("다른 거 없어?") 시 중복 방지 기능(`shown_rag_ids`/`shown_titles`) 신규 구현 <br> - 이름 검색 생성 폴백에 웹 검색(Tavily) 기반 실존 판정 추가, 20케이스 검증 <br> - 대화 로그 SQLite 기록 + 베타 기간 S3 백업 구현 <br> - LangSmith trace 다운로드 스크립트 작성 <br> - 사용자 사용설명서 작성, README/로드맵 최신화 | | - "다른 거 없어?" 재요청이 '레시피 선택'으로 오분류되어 중복 방지 로직이 실제로는 발동 못 하던 버그 발견 및 수정 <br> - `git mv` 사용 시 편집 전 콘텐츠가 커밋되는 이슈 발견 (커밋 후 `git show HEAD` 재확인 습관화로 대응) <br> - LangSmith SDK가 KST tz-aware datetime 필터를 제대로 처리 못 하는 문제 발견, UTC 변환으로 해결 |
 | MM/DD (토) | | | |
 | MM/DD (일) | | | |
 
-**주간 요약**: (한 주 진행 상황 및 다음 주로 넘길 항목 정리)
+**주간 요약**: 배포 파이프라인 안정화(CUDA 제거, 캐시, 안전장치) 이후 요리 이름 검색·웹 검색 기반 실존 판정·재요청 중복 방지 등 신뢰성 강화 기능을 대거 추가하고, 90개 테스트케이스 기반 기능/실제로직 테스트로 검증. 대화 로그 시스템까지 갖춰 베타 배포 준비를 마침. 다음 주로 넘길 항목: 레시피 사후 검토/재생성 루프(Milestone 3, 4), TAVILY_API_KEY 등 EC2 환경변수 최종 점검 후 `main` 배포.
 
 
 

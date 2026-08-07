@@ -18,7 +18,7 @@
 - 대안으로 `astream_events()` + `on_chain_start`도 검토했으나, 이 프로젝트는 노드=LLM 호출 1회 구조가
   대부분이라 이벤트 세분화 이득 대비 구현 복잡도(이벤트 필터링, 동기 LLM 호출과의 호환성 검증)가 더 커서 기각
 - **채택한 절충안**: `stream_mode="updates"`를 유지하되, `astream` 루프 진입 전에 진입 노드(`query_analysis`)
-  문구를 먼저 한 번 보내서 "첫 노드 실행 중에는 아무 신호도 없는" 무신호 구간만 없앰 ([main.py](../main.py) `event_generator` 참고)
+  문구를 먼저 한 번 보내서 "첫 노드 실행 중에는 아무 신호도 없는" 무신호 구간만 없앰 ([main.py](../../main.py) `event_generator` 참고)
 
 ## 3. `NODE_DISPLAY_NAMES` 매핑 누락
 
