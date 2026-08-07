@@ -83,6 +83,20 @@ def ingredient_analysis(state: OverrallState):
 
     ingredient_names = state["ingredient_list"].ingredients_name
 
+    ## 재료가 하나도 없으면(식재료가 아닌 것만 언급된 경우 등, extract_ingredient가
+    ## 이미 전부 걸러낸 상태) "요리 가능한가?"를 물을 대상 자체가 없는 결정적 케이스라
+    ## LLM 호출 없이 바로 not_cookable로 처리. query_analysis가 "재료를 준 것처럼"
+    ## 분류했더라도 여기서 정확한 이유로 정리됨.
+    if not ingredient_names:
+        ingredient_analysis_result = IngredientAnalysisResult(
+            feasibility="not_cookable",
+            reason="재료로 인식할 수 있는 내용이 없어요. 사용 가능한 식재료를 알려주세요.",
+            structured_recipe=None,
+            needed_ingredients=None,
+            combination_warnings=None,
+        )
+        return {"ingredient_analysis_result": ingredient_analysis_result}
+
     query_ingredient_analysis = analysis_prompts.ingredient_prompt.format(
         ingredients=ingredient_names
     )
