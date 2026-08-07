@@ -1,0 +1,24 @@
+# C. 재료명 정규화 (26~35번) 테스트 결과
+
+**테스트 방식**: `ingredient_synonyms.is_ingredient_satisfied` / `nodes.ingredients._merge_deduped` 순수 함수를 직접 호출. LLM 호출 없음.
+
+**요약**: 10/10 전부 일치. 수정 사항 없음.
+
+---
+
+## 상세 결과
+
+| # | 시나리오 | 호출 | 결과 | 기대 | 판정 |
+|---|---|---|---|---|---|
+| 26 | 보유 "달걀", 필요 "계란" | `is_ingredient_satisfied('계란','달걀')` | True | True | ✅ |
+| 27 | 보유 "케챱", 필요 "케첩" | `is_ingredient_satisfied('케첩','케챱')` | True | True | ✅ |
+| 28 | 보유 "청사과", 필요 "사과" | `is_ingredient_satisfied('사과','청사과')` | True | True | ✅ |
+| 29 | 보유 "사과", 필요 "청사과" (역방향) | `is_ingredient_satisfied('청사과','사과')` | False | False | ✅ |
+| 30 | 보유 "흑후추", 필요 "백후추" | `is_ingredient_satisfied('백후추','흑후추')` | False | False | ✅ |
+| 31 | "계란도 있어" + 이미 "달걀" 보유 중 | `_merge_deduped([달걀], [계란])` | len=1 (중복 제거됨) | len=1 | ✅ |
+| 32 | 보유 "표고버섯", 필요 "버섯" | `is_ingredient_satisfied('버섯','표고버섯')` | True | True | ✅ |
+| 33 | 보유 "적양파", 필요 "양파" | `is_ingredient_satisfied('양파','적양파')` | True | True | ✅ |
+| 34 | 보유 "흑설탕", 필요 "설탕" | `is_ingredient_satisfied('설탕','흑설탕')` | False | False | ✅ |
+| 35 | 보유 "묵은지", 필요 "김치" | `is_ingredient_satisfied('김치','묵은지')` | True | True | ✅ |
+
+**참고**: 31번은 원본 문서엔 실제 발화("계란도 있어")로 LLM을 거치는 케이스로 돼 있었지만, 검증하려는 핵심 로직(동의어 기준 중복 제거)이 `_merge_deduped`라는 순수 함수라서 LLM 없이 직접 테스트하는 게 더 정확하고 빠름 — 이 방식으로 대체.

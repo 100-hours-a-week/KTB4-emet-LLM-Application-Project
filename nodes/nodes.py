@@ -52,18 +52,24 @@ def rag_adequacy_check(state: OverrallState):
     RAG 검색 결과(k=12로 늘린 것) 전체를 순회하며 적정성 평가.
     LLM 호출 없음. 적합 판정 상위 N개를 채택하고, 부족한 개수를 계산해
     preview_recipe_options가 몇 개를 생성해야 하는지 넘겨준다.
+
+    이미 보여준 RAG 레시피(shown_rag_ids)는 후보에서 제외한다 -> 같은 재료로
+    "다른 거 없어?"를 반복해도, 예전에 적합했지만 순위에 밀려 못 보여준
+    레시피가 있으면 그게 먼저 채택되고, 그만큼 LLM 생성 개수(shortfall)가 줄어든다.
     """
     print("\n현재노드: rag_adequacy_check\n")
- 
+
     rag_recipes = state["retrieved_recipes"].recipes
     user_ingredient_names = state["ingredient_list"].ingredients_name
- 
+    shown_rag_ids = set(state.get("shown_rag_ids") or [])
+
     selected_recipes, shortfall = evaluate_rag_options(
-        rag_recipes, user_ingredient_names, max_count=PREVIEW_TOTAL_COUNT
+        rag_recipes, user_ingredient_names, max_count=PREVIEW_TOTAL_COUNT, exclude_ids=shown_rag_ids
     )
- 
+
     ## 적합 판정된 RAG 레시피들만 RecipeOption 형태로 변환
     rag_options = []
+    new_rag_ids = []
     for recipe in selected_recipes:
         recipe_names = {item[0] for item in recipe.ingredients if item}
         needed = compute_missing_ingredients(recipe_names, set(user_ingredient_names))
@@ -75,12 +81,15 @@ def rag_adequacy_check(state: OverrallState):
                 needed_ingredients=needed,
             )
         )
- 
+        if recipe.recipe_id:
+            new_rag_ids.append(recipe.recipe_id)
+
     print(f"적합 RAG 선택지: {len(rag_options)}개, 부족분: {shortfall}개")
- 
+
     return {
         "rag_options": rag_options,
         "preview_needed_count": shortfall,
+        "shown_rag_ids": list(shown_rag_ids) + new_rag_ids,
     }
  
 """

@@ -51,12 +51,18 @@ def preview_recipe_options(state: OverrallState):
 
     rag_options = state.get("rag_options", [])
     needed_count = state.get("preview_needed_count", 1)
+    shown_titles = state.get("shown_titles") or []
 
     if needed_count <= 0:
         print("부족분 없음 -> LLM 생성 건너뜀")
-        return {"recipe_options": rag_options}
+        return {
+            "recipe_options": rag_options,
+            "shown_titles": shown_titles + [opt.title for opt in rag_options],
+        }
 
-    excluded_titles = [opt.title for opt in rag_options]
+    ## 이번 턴 RAG 옵션 + 지금까지 보여준 전체 제목(RAG+생성) 둘 다 제외
+    ## -> "다른 거 없어?" 재요청 시 같은 제목을 LLM이 다시 만들지 않도록
+    excluded_titles = [opt.title for opt in rag_options] + shown_titles
 
     query_preview_recipe = preview_recipes_prompts.options_prompt.format(
         option_count=needed_count,
@@ -74,7 +80,11 @@ def preview_recipe_options(state: OverrallState):
 
     print(f"\n\ngenerated_options: {result}\n\n")
 
-    return {"recipe_options": rag_options + result.options}
+    all_options = rag_options + result.options
+    return {
+        "recipe_options": all_options,
+        "shown_titles": shown_titles + [opt.title for opt in all_options],
+    }
 
 
 ## RAG 프리뷰레시피와 레시피 옵션의 프리퓨레시피 합쳐서 출력하는 노드
@@ -179,15 +189,23 @@ def evaluate_rag_options(
     rag_recipes: list,  # StructuredRecipe 리스트 (retrieved_recipes.recipes)
     user_ingredient_names: list[str],
     max_count: int,
+    exclude_ids: set[str] = frozenset(),
 ) -> tuple[list, int]:
     """
     RAG 레시피 전체를 순회하며 적정성 평가.
- 
+
+    exclude_ids: 이미 보여준 recipe_id 집합 (재요청 시 재검색에서 제외).
+    RAG 검색 자체는 같은 재료면 매번 결정적으로 같은 후보를 반환하므로, 여기서
+    이미 보여준 것만 걸러내면 이전에 적합했지만 순위에 밀려 못 보여준 레시피가
+    자연스럽게 다음 우선순위로 채택된다.
+
     반환값: (채택된 적합 레시피 리스트[최대 max_count개], 부족한 개수)
     """
     adequate = []
- 
+
     for recipe in rag_recipes:
+        if recipe.recipe_id in exclude_ids:
+            continue
         recipe_names = [item[0] for item in recipe.ingredients if item]
         verdict = evaluate_rag_recipe(recipe_names, user_ingredient_names)
         if verdict == "적합":

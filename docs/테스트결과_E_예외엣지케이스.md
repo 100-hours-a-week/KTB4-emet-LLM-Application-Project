@@ -1,0 +1,52 @@
+# E. 예외·엣지 케이스 (44~50번) 테스트 결과
+
+**테스트 방식**: `nodes/analysis.py`의 `ingredient_analysis`/`build_combination_warnings`, `nodes/ingredients.py`의 `extract_ingredient`/`extract_ingredient_update`, `nodes/preview_recipes.py`의 `preview_recipe_options`를 직접 호출. 44,45,48,49는 실제 LLM 호출, 46은 순수 함수, 47은 LLM 완전 실패를 mock으로 재현, 50은 실제 LLM 호출 3회 반복.
+
+**요약**: 7개 중 5개 일치, 2개(45, 50번) 불일치 → 45번은 문서 수정, 50번은 **실제 기능 갭으로 확인되어 신규 기능을 구현**(자세한 내용은 [테스트결과_F_반복요청중복방지.md](테스트결과_F_반복요청중복방지.md) 참고).
+
+---
+
+## 상세 결과
+
+### 44. 재료 0개 상태에서 "레시피 추천해줘"
+- `ingredient_analysis({"ingredient_list": IngredientList(ingredients=[])})`
+- 결과: feasibility=`not_cookable`, reason="재료가 하나도 주어지지 않아 요리 자체가 성립하지 않음"
+- `conditional_ingredient_analysis` → `respond_infeasible`로 정상 라우팅
+- 판정: ✅ 일치, 에러 없음
+
+### 45. 재료 1개만("계란") 제공
+- 1차 결과: feasibility=`needs_more_ingredients`, reason=None
+- 1차 판정: ❌ (원본 문서는 "not_cookable + reason 포함"을 기대)
+- **재검증**: 같은 입력으로 5회 반복 실행 → **5회 모두 동일하게 `needs_more_ingredients`**. 변동성이 아니라 일관된 LLM 판정으로 확인.
+- **문서 수정 완료**: "재료 1개는 needs_more_ingredients (reason은 not_cookable일 때만 채워지는 게 정상이라 비어있는 게 맞음)"으로 기대치 변경.
+- 최종 판정: ✅ (문서 수정 후 일치)
+
+### 46. 궁합 나쁜 조합 포함 (감+게)
+- `build_combination_warnings(['감','게'])` (순수 함수, LLM 없음)
+- 결과: `['감+게: 게는 고단백이라 식중독균 번식이 빠른데, 감의 탄닌이 변비를 유발해 균이 몸 안에 오래 남게 되어 식중독 위험이 커진다고 알려짐 (전통속설(위험도 높음으로 분류됨))']`
+- 판정: ✅ 일치
+
+### 47. LLM 구조화 출력 실패 상황
+- `nodes.analysis.llm.invoke_structured`를 mock으로 `None` 반환하도록 강제 (전체 provider 소진 상황 재현)
+- 결과: feasibility=`not_cookable`, reason="재료 정보를 판정하는 중 문제가 발생했어요."
+- 판정: ✅ 일치, 크래시 없이 안전한 폴백 문구로 처리됨
+
+### 48. 존재하지 않는 재료명("ㅁㄴㅇㄹ") 입력
+- `extract_ingredient({"query": "ㅁㄴㅇㄹ 있어"})`
+- 결과: add=[] (빈 리스트, 환각 없음)
+- 판정: ✅ 일치, 크래시 없음
+
+### 49. 동시에 여러 액션이 섞인 발화
+- 입력: "계란 빼고 우유 추가하고 사실 대파도 넣어줘" (이전: 계란, 대파)
+- 결과: mode=diff, add=[우유], remove=[계란] (대파는 원래 있던 그대로 유지)
+- 판정: ✅ 일치 — "사실"이라는 표현에 낚여서 전체를 replace로 오판하지 않고, remove+add 조합으로 정확히 분해
+
+### 50. 연속 3회 이상 "다른 거 없어?" 요청
+- 같은 재료(계란3개, 대파1뿌리, 돼지고기200g)로 `preview_recipe_options`를 3회 연속 호출
+- 결과:
+  - 1회차: 돼지고기 계란볶음 / 돼지고기 대파 계란덮밥 / 대파 돼지고기 계란전
+  - 2회차: 돼지고기 대파 계란볶음 / 돼지고기 계란덮밥 / 대파 돼지고기 계란전
+  - 3회차: 돼지고기 계란볶음 / 대파 돼지고기 덮밥 / 돼지고기 계란말이
+- 판정: ❌ **제목이 회차 간에 거의 그대로 반복됨** ("돼지고기 계란볶음"이 1·3회차에, "대파 돼지고기 계란전"이 1·2회차에 재등장)
+- **원인**: `excluded_titles`(당시 코드)가 그 턴의 RAG 옵션 제목만 제외하고, 이전 턴에 LLM이 생성했던 제목은 전혀 추적하지 않음.
+- **결론**: 문서 오기가 아니라 **실제 기능 갭**. 사용자와 논의 후 신규 기능(`shown_rag_ids`/`shown_titles` 상태 추가)을 구현 — 자세한 내용과 재검증 결과는 [테스트결과_F_반복요청중복방지.md](테스트결과_F_반복요청중복방지.md) 참고.

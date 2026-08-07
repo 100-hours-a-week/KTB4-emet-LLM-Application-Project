@@ -45,6 +45,12 @@ class OverrallState(MessagesState):
     structured_recipe: schems.StructuredRecipe
     ## 이번 세션에서 완성 생성된(finalize_recipe) 레시피 캐시.
     finalized_recipes: dict[str, schems.StructuredRecipe]
+    ## 이번 대화에서 이미 보여준 RAG 레시피의 recipe_id 누적.
+    ## "다른 거 없어?" 재요청 시 rag_adequacy_check가 재검색 후보에서 제외하는 데 사용.
+    shown_rag_ids: List[str]
+    ## 이번 대화에서 이미 보여준 레시피 제목 누적 (RAG+생성 전체).
+    ## LLM 재생성 시 같은 제목을 다시 만들지 않도록 excluded_titles에 합쳐서 사용.
+    shown_titles: List[str]
  
 
 
