@@ -33,7 +33,7 @@ Thumbs.db
 
 # Logs
 *.log
-
+evaluate/*
 # Test / notebook cache
 .pytest_cache/
 .ipynb_checkpoints/
