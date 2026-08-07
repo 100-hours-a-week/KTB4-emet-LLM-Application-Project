@@ -52,6 +52,9 @@ def get_llm(provider: str | None = None, model: str | None = None):
     return ChatGoogleGenerativeAI(
         model=resolved_model,
         google_api_key=os.getenv("GOOGLE_API_KEY"),
+        ## 구조화 출력처럼 정답이 정해진 작업에는 기본 temperature(높음)가 과도한 무작위성을
+        ## 유발해 오타/언어 이탈 원인이 될 수 있어 낮은 값으로 고정 (베타테스트 중 튜닝값)
+        temperature=0.3,
     )
 
 
