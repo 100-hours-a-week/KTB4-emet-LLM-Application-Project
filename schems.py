@@ -172,3 +172,19 @@ class NameMatchResult(BaseModel):
             "같다고 볼 수 있는 후보가 하나도 없다면 반드시 빈 리스트."
         ),
     )
+
+
+class NameGenerationResult(BaseModel):
+    """요리 이름 검색에서 RAG 매칭이 하나도 없을 때, 웹 검색 결과를 근거로
+    실존 여부를 판단하고(실존하면) 레시피를 생성한 결과."""
+    is_real_dish: bool = Field(
+        description="검색 결과를 근거로 요청한 요리가 실제로 존재한다고 판단되면 true"
+    )
+    invalid_reason: str | None = Field(
+        default=None,
+        description="is_real_dish가 false일 때만 채움. 검색 결과에 실존 근거가 없다고 본 이유.",
+    )
+    recipe: StructuredRecipe | None = Field(
+        default=None,
+        description="is_real_dish가 true일 때만 채움. 검색 결과 내용을 반영해서 만든 레시피.",
+    )

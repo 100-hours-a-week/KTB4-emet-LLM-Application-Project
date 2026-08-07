@@ -51,6 +51,10 @@ class OverrallState(MessagesState):
     ## 이번 대화에서 이미 보여준 레시피 제목 누적 (RAG+생성 전체).
     ## LLM 재생성 시 같은 제목을 다시 만들지 않도록 excluded_titles에 합쳐서 사용.
     shown_titles: List[str]
+    ## 이름 검색 생성 폴백(generate_recipe_by_name)에서, 웹 검색 결과 근거로
+    ## 실존하지 않는 요리로 판단된 경우의 사유. present_recipe_options가
+    ## recipe_options가 비었을 때 이 값이 있으면 더 구체적인 안내를 준다.
+    invalid_dish_reason: str | None
  
 
 

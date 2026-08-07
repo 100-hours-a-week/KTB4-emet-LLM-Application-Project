@@ -10,11 +10,19 @@ RAG로 먼저 찾아보고, 후보들 중 요청 이름과 실질적으로 같�
 
 import uuid
 
-from schems import RecipeOption, RecipeList, StructuredRecipe, IngredientAnalysisResult, NameMatchResult
+from schems import (
+    RecipeOption,
+    RecipeList,
+    StructuredRecipe,
+    IngredientAnalysisResult,
+    NameMatchResult,
+    NameGenerationResult,
+)
 
 import llm
 from templates import name_search_prompts
 from states import OverrallState
+from rag.web_search import web_search
 from . import recipes as recipes_module
 from .recipes import parse_recipe_docs
 from .analysis import build_combination_warnings
@@ -160,14 +168,21 @@ def resolve_rag_name_match(state: OverrallState):
     }
 
 
-## RAG 부적합: 요청한 이름으로 레시피를 새로 생성
+## RAG 부적합: 웹 검색으로 실존 여부를 먼저 확인한 뒤, 실존하는 요리면 검색 결과를
+## 반영해서 레시피를 생성. 검색 근거가 없으면 지어내지 않고 "실존하지 않는 요리"로 응답.
 def generate_recipe_by_name(state: OverrallState):
     print("\n현재노드: generate_recipe_by_name\n")
 
     dish_name = state["query_type"].dish_name
-    query_generate = name_search_prompts.generate_recipe_by_name_prompt.format(dish_name=dish_name)
+    search_results = web_search(dish_name)
+    print(f"[DEBUG] 웹 검색 결과 길이: {len(search_results)}자")
 
-    result = llm.invoke_structured(StructuredRecipe, query_generate, fallback=None)
+    query_generate = name_search_prompts.generate_recipe_by_name_prompt.format(
+        dish_name=dish_name,
+        search_results=search_results or "(검색 결과 없음)",
+    )
+
+    result = llm.invoke_structured(NameGenerationResult, query_generate, fallback=None)
 
     if result is None:
         print("[WARN] 이름 기반 레시피 생성 실패")
@@ -175,13 +190,23 @@ def generate_recipe_by_name(state: OverrallState):
         ## present_recipe_options가 "찾지 못했어요" 메시지로 안전하게 처리한다.
         return {}
 
-    if not result.recipe_id:
-        result.recipe_id = f"G{uuid.uuid4().hex[:8]}"
+    if not result.is_real_dish:
+        reason = result.invalid_reason or "검색 결과에서 실존 근거를 찾지 못했습니다."
+        print(f"[DEBUG] 실존하지 않는 요리로 판단: {reason}")
+        return {"invalid_dish_reason": reason}
+
+    structured = result.recipe
+    if structured is None:
+        print("[WARN] is_real_dish=True인데 recipe가 비어있음 -> 생성 실패로 처리")
+        return {}
+
+    if not structured.recipe_id:
+        structured.recipe_id = f"G{uuid.uuid4().hex[:8]}"
 
     option_id = uuid.uuid4().hex[:8]
-    ingredient_names = _extract_ingredient_names(result)
+    ingredient_names = _extract_ingredient_names(structured)
     option = RecipeOption(
-        title=result.title,
+        title=structured.title,
         source="generated",
         recipe_id=option_id,
         needed_ingredients=ingredient_names,
@@ -200,6 +225,6 @@ def generate_recipe_by_name(state: OverrallState):
 
     return {
         "recipe_options": [option],
-        "finalized_recipes": {**finalized_recipes, cache_key: result},
+        "finalized_recipes": {**finalized_recipes, cache_key: structured},
         "ingredient_analysis_result": ingredient_analysis_result,
     }

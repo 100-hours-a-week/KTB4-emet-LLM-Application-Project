@@ -98,6 +98,11 @@ def present_recipe_options(state: OverrallState):
     is_name_search = state["query_type"].type == "레시피 이름 검색"
 
     if not options:
+        ## generate_recipe_by_name이 웹 검색 근거로 "실존하지 않는 요리"라고 판단한
+        ## 경우엔 일반적인 "찾지 못했어요"보다 구체적인 사유를 보여준다.
+        invalid_reason = state.get("invalid_dish_reason")
+        if invalid_reason:
+            return {"answer": f"죄송해요, 요청하신 요리는 실존하는 요리가 아닌 것 같아요.\n이유: {invalid_reason}"}
         if is_name_search:
             return {"answer": "죄송해요, 요청하신 요리의 레시피를 찾지 못했어요. 다시 시도해 주세요."}
         return {
