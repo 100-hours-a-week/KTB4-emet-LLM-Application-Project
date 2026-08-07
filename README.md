@@ -46,66 +46,84 @@
 [docs/로드맵/Roadmap.md](docs/로드맵/Roadmap.md)   
 
 ---
-## component(update: 2026.08.07)   
-chatbot_project/   
-├── app/   
-├── Dockerfile  
-├── conversation_log.py &nbsp;&nbsp;# 대화 로그 SQLite 기록 + S3 백업  
-├── data_pipeline/  
-│   ├── collect_recipe_links.py  
-│   ├── food_keywords.py  
-│   ├── recipe_pipeline.py  
-│   ├── save_recipes_pdf.py  
-│   ├── structured.py  
-│   ├── collected/  
-│   │   └── recipe_ids.json  
-│   ├── original_recipes/  
-│   └── structured_recipes/  
-├── docs/ &nbsp;&nbsp;# 사용설명서 / 로드맵 / 회고록 / 테스트 결과 / 트러블슈팅 (부록 참고)  
-│   ├── 사용설명서/  
-│   ├── 로드맵/  
-│   ├── 회고록/  
-│   ├── 트러블슈팅/  
-│   ├── 기능테스트/  
-│   └── 실제로직테스트/  
-├── evaluate/ &nbsp;&nbsp;# LangSmith trace 다운로드/분석 스크립트  
-├── graph.png  
-├── graph.py  
-├── ingredient_synonyms.py  
-├── ingredient_categories.py  
-├── food_combination_matcher.py  
-├── llm.py  
-├── main.py  
-├── model/  
-├── nodes/  
-│   ├── __init__.py  
-│   ├── analysis.py  
-│   ├── ingredients.py  
-│   ├── name_search.py &nbsp;&nbsp;# 요리 이름 검색 흐름  
-│   ├── nodes.py  
-│   ├── preview_recipes.py  
-│   └── recipes.py  
-├── rag/  
-│   ├── __init__.py  
-│   ├── config.py  
-│   ├── loader.py  
-│   ├── local_embeddings.py  
-│   ├── vectorstore.py  
-│   └── web_search.py &nbsp;&nbsp;# 요리 이름 검색 생성 폴백용 웹 검색 (provider 교체 가능)  
-├── self_model/  
-│   └── loader.py  
-├── templates/  
-│   ├── __init__.py  
-│   ├── analysis_prompts.py  
-│   ├── ingredients_prompts.py  
-│   ├── name_search_prompts.py  
-│   ├── preview_recipes_prompts.py  
-│   ├── prompts.py  
-│   └── recipes_prompts.py  
-├── pyproject.toml  
-├── schems.py  
-├── states.py  
-└── uv.lock   
+## component(update: 2026.08.07)
+
+> 개발/캐시 산출물(`__pycache__`, `.venv`, `.DS_Store`), 비어있거나 소스와 무관한 디렉토리(`app/`, `claude/`),
+> 원본 스크래핑 데이터(`data_pipeline/original_recipes/`, `structured_recipes/`의 개별 파일), 런타임에만
+> 생성되는 `data/`(VDB, 대화 로그 DB)는 구조 파악에 중요하지 않아 제외했습니다. 전체 목록은 `git ls-files` 참고.
+
+```
+chatbot_project/
+├── Dockerfile
+├── conversation_log.py          # 대화 로그 SQLite 기록 + S3 백업
+├── llm.py
+├── main.py
+├── graph.py
+├── graph.png                    # 그래프 다이어그램 (서버 종료 시 자동 갱신)
+├── states.py
+├── schems.py
+├── ingredient_synonyms.py
+├── ingredient_categories.py
+├── food_combination_matcher.py
+├── food_combination_taboo.json
+├── pyproject.toml
+├── uv.lock
+│
+├── nodes/
+│   ├── analysis.py
+│   ├── ingredients.py
+│   ├── name_search.py           # 요리 이름 검색 흐름
+│   ├── nodes.py
+│   ├── preview_recipes.py
+│   └── recipes.py
+│
+├── rag/
+│   ├── config.py
+│   ├── loader.py
+│   ├── local_embeddings.py
+│   ├── vectorstore.py
+│   └── web_search.py            # 이름 검색 생성 폴백용 웹 검색 (provider 교체 가능)
+│
+├── templates/
+│   ├── analysis_prompts.py
+│   ├── ingredients_prompts.py
+│   ├── name_search_prompts.py
+│   ├── preview_recipes_prompts.py
+│   ├── prompts.py
+│   └── recipes_prompts.py
+│
+├── model/
+│   └── model.py                 # 커스텀 트랜스포머 (자체 모델 실험용)
+├── self_model/
+│   └── loader.py                # 자체학습모델 연동 예정 자리
+│
+├── static/
+│   └── index.html               # 프론트(백엔드가 그대로 서빙)
+│
+├── data_pipeline/                # 레시피 수집 파이프라인 (서버와 별개로 독립 실행)
+│   ├── collect_recipe_links.py
+│   ├── food_keywords.py
+│   ├── recipe_pipeline.py
+│   ├── save_recipes_pdf.py
+│   ├── structured.py
+│   ├── PIPELINE_사용법.md
+│   ├── collected/
+│   ├── original_recipes/
+│   └── structured_recipes/
+│
+├── evaluate/                    # LangSmith trace 다운로드/분석 스크립트
+│
+├── docs/                        # 사용설명서 / 로드맵 / 회고록 / 테스트 결과 / 트러블슈팅 (부록 참고)
+│   ├── 사용설명서/
+│   ├── 로드맵/
+│   ├── 회고록/
+│   ├── 트러블슈팅/
+│   ├── 기능테스트/
+│   └── 실제로직테스트/
+│
+└── .github/workflows/
+    └── deploy.yml                # CI/CD 배포 파이프라인
+```
 
 ---
 ## version
