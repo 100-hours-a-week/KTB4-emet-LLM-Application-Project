@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from glob import glob
 from pathlib import Path
 import asyncio
@@ -10,6 +11,8 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
+import conversation_log
+import llm
 from rag.config import get_db_path
 from rag.vectorstore import sync_vdb_from_s3
 
@@ -20,6 +23,10 @@ load_dotenv()
 ## 일정 시간 활동이 없는 스레드는 주기적으로 지워서 메모리 누적을 막는다.
 SESSION_IDLE_TTL_SECONDS = int(os.getenv("SESSION_IDLE_TTL_SECONDS", 7200))  # 2시간
 SESSION_SWEEP_INTERVAL_SECONDS = int(os.getenv("SESSION_SWEEP_INTERVAL_SECONDS", 1800))  # 30분
+
+## 베타테스트 기간 동안 대화 로그(data/logs.db)를 주기적으로 S3에 백업하는 주기.
+## LOG_S3_UPLOAD=1일 때만 동작 (conversation_log.upload_to_s3 참고).
+LOG_S3_UPLOAD_INTERVAL_SECONDS = int(os.getenv("LOG_S3_UPLOAD_INTERVAL_SECONDS", 600))  # 10분
 
 ## 그래프 진입 노드 (START -> query_analysis 고정 경로)
 ENTRY_NODE = "query_analysis"
@@ -67,6 +74,14 @@ async def _sweep_idle_threads(app: FastAPI):
             print(f"[session cleanup] 유휴 스레드 {len(idle_thread_ids)}개 정리: {idle_thread_ids}")
 
 
+async def _periodic_log_upload():
+    """대화 로그를 주기적으로 S3에 백업하는 백그라운드 루프.
+    (LOG_S3_UPLOAD=1 아니면 conversation_log.upload_to_s3 내부에서 조용히 스킵됨)"""
+    while True:
+        await asyncio.sleep(LOG_S3_UPLOAD_INTERVAL_SECONDS)
+        await asyncio.to_thread(conversation_log.upload_to_s3)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ## 그래프 빌드(=VDB 로드) 전에 S3에서 최신 VDB를 먼저 받아옴
@@ -78,17 +93,24 @@ async def lifespan(app: FastAPI):
     ## 반드시 sync_vdb_from_s3() 이후에 와야 한다.
     import graph
 
+    conversation_log.init_db()
+
     app.state.rag = graph.build()
     app.state.thread_last_seen = {}
     sweep_task = asyncio.create_task(_sweep_idle_threads(app))
+    log_upload_task = asyncio.create_task(_periodic_log_upload())
 
     yield
 
     sweep_task.cancel()
-    try:
-        await sweep_task
-    except asyncio.CancelledError:
-        pass
+    log_upload_task.cancel()
+    for task in (sweep_task, log_upload_task):
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    ## 종료 직전 마지막 상태도 한 번 더 백업 (주기적 업로드 사이에 종료되는 경우 대비)
+    await asyncio.to_thread(conversation_log.upload_to_s3)
     app.state.rag.get_graph().draw_mermaid_png(output_file_path="graph.png")
 
 
@@ -131,11 +153,20 @@ async def query(req: QueryRequest):
         ## 화면이 멈춘 것처럼 보이므로, 진입 노드 문구를 먼저 한 번 보내둔다.
         yield f"data: {json.dumps({'type': 'progress', 'status': NODE_DISPLAY_NAMES[ENTRY_NODE]}, ensure_ascii=False)}\n\n"
 
+        ## 이번 턴 동안 발생하는 LLM 호출(provider별)을 대화 로그용으로 수집
+        llm_log_token = llm.llm_call_log.set([])
+        node_timings: list[dict] = []
+        turn_start = time.perf_counter()
+        last_ts = turn_start
+
         try:
             async for chunk in app.state.rag.astream(
                 {"query": req.question}, config, stream_mode="updates"
             ):
                 node_name = list(chunk.keys())[0]
+                now = time.perf_counter()
+                node_timings.append({"node": node_name, "elapsed_ms": round((now - last_ts) * 1000)})
+                last_ts = now
                 display = NODE_DISPLAY_NAMES.get(node_name, "처리하는 중")
                 yield f"data: {json.dumps({'type': 'progress', 'status': display}, ensure_ascii=False)}\n\n"
 
@@ -143,13 +174,43 @@ async def query(req: QueryRequest):
             ## 그래프 구조 변경(병렬 노드 등)에 취약함 -> 체크포인터에 저장된 전체 상태를 다시 조회해서 answer를 꺼낸다.
             snapshot = await app.state.rag.aget_state(config)
             answer = (snapshot.values.get("answer") or "결과가 없습니다.") if snapshot else "결과가 없습니다."
+            query_type = snapshot.values.get("query_type") if snapshot else None
+
+            await conversation_log.insert_log(
+                thread_id=thread_id,
+                created_at=datetime.now(timezone.utc).isoformat(),
+                query=req.question,
+                answer=answer,
+                query_type=query_type.type if query_type else None,
+                node_path=[t["node"] for t in node_timings],
+                node_timings=node_timings,
+                llm_calls=llm.llm_call_log.get() or [],
+                total_elapsed_ms=round((time.perf_counter() - turn_start) * 1000),
+            )
+
             yield f"data: {json.dumps({'type': 'final', 'answer': answer, 'thread_id': thread_id}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             ## 내부 예외 메시지를 그대로 클라이언트에 노출하지 않는다.
             print(f"[SSE] 그래프 실행 실패 (thread_id={thread_id}): {e}")
             error_message = "답변 생성 중 문제가 발생했어요. 다시 시도해 주세요."
+
+            await conversation_log.insert_log(
+                thread_id=thread_id,
+                created_at=datetime.now(timezone.utc).isoformat(),
+                query=req.question,
+                answer=None,
+                query_type=None,
+                node_path=[t["node"] for t in node_timings],
+                node_timings=node_timings,
+                llm_calls=llm.llm_call_log.get() or [],
+                total_elapsed_ms=round((time.perf_counter() - turn_start) * 1000),
+                error=str(e),
+            )
+
             yield f"data: {json.dumps({'type': 'error', 'message': error_message}, ensure_ascii=False)}\n\n"
+        finally:
+            llm.llm_call_log.reset(llm_log_token)
 
     return StreamingResponse(
         event_generator(),

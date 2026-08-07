@@ -1,5 +1,6 @@
 import os
 import time
+import contextvars
 from functools import lru_cache
 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,6 +13,20 @@ NO_FALLBACK = object()
 
 ## 폴백 순서 (provider 미지정 시 이 순서대로 직접 시도)
 FALLBACK_ORDER = ("claude", "google", "vllm")
+
+## 요청(턴) 하나 동안 발생한 LLM 호출 기록. main.py의 /query 핸들러가 요청 시작 시
+## set([])으로 초기화하고, 끝날 때 get()으로 수집해서 대화 로그 DB에 남긴다.
+## 호출부(invoke_structured/ainvoke_structured) 수십 곳을 개별로 안 건드리고
+## 여기 한 곳만 손대면 되도록 contextvar로 구성 (호출 시그니처 변경 없음).
+llm_call_log: contextvars.ContextVar[list | None] = contextvars.ContextVar(
+    "llm_call_log", default=None
+)
+
+
+def _record_call(schema_name: str, provider: str | None, elapsed: float) -> None:
+    log = llm_call_log.get()
+    if log is not None:
+        log.append({"schema": schema_name, "provider": provider, "elapsed_ms": round(elapsed * 1000)})
 
 
 ## LLM 인스턴스 반환
@@ -97,7 +112,9 @@ def invoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, mo
     """
     providers = [provider] if provider is not None else list(FALLBACK_ORDER)
 
+    start = time.time()
     result, used_provider = _try_providers_sync(schema, prompt, providers, model)
+    _record_call(schema.__name__, used_provider, time.time() - start)
 
     if result is not None:
         return result
@@ -117,7 +134,9 @@ async def ainvoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=N
     """
     providers = [provider] if provider is not None else list(FALLBACK_ORDER)
 
+    start = time.time()
     result, used_provider = await _try_providers_async(schema, prompt, providers, model)
+    _record_call(schema.__name__, used_provider, time.time() - start)
 
     if result is not None:
         return result

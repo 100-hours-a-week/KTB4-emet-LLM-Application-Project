@@ -1,5 +1,7 @@
 # SSE 스트리밍 전환 트러블슈팅 정리
 
+**작성 일시: 2026-08-06 20:12**
+
 > `POST /query`를 단발 JSON 응답에서 SSE(Server-Sent Events) 스트리밍으로 전환하면서
 > (`feature/front/streaming` 브랜치) 발견하고 해결한 문제들 정리.
 

@@ -39,5 +39,6 @@ Thumbs.db
 .pytest_cache/
 .ipynb_checkpoints/
 
+evaluate/langsmith_export/*
 # Local vector store persistence (if ChromaDB writes to disk here)
 # chroma_db/
