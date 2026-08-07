@@ -12,7 +12,10 @@ load_dotenv()
 NO_FALLBACK = object()
 
 ## 폴백 순서 (provider 미지정 시 이 순서대로 직접 시도)
-FALLBACK_ORDER = ("claude", "google")
+## 베타테스트 기간 임시 조치: Claude 워크스페이스 사용량 한도 소진(2026-09-01 복구 예정)으로
+## 매 요청마다 Claude 실패 -> Google로 폴백되는 지연만 발생하고 있어 Google만 시도하도록 변경.
+## 한도가 복구되면 다시 ("claude", "google")로 되돌릴 것.
+FALLBACK_ORDER = ("google",)
 
 ## 요청(턴) 하나 동안 발생한 LLM 호출 기록. main.py의 /query 핸들러가 요청 시작 시
 ## set([])으로 초기화하고, 끝날 때 get()으로 수집해서 대화 로그 DB에 남긴다.
