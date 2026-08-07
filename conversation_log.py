@@ -8,8 +8,11 @@ VDB 업로드와 동일한 방식/환경변수 네이밍), EC2에 직접 안 들
 확인할 수 있게 한다.
 
 주의: upload_to_s3()는 매번 같은 키(logs.db)를 덮어쓰는 "현재 상태 백업"이라
-과거 이력은 남지 않는다. 날짜별로 이력을 보존하려면 rotate_and_archive()를 쓴다
-(main.py가 베타테스트 기간 동안 매일 22:00 KST에 호출).
+과거 이력은 남지 않는다. 시각별로 이력을 보존하려면 rotate_and_archive()를 쓴다
+(main.py가 베타테스트 기간 동안 매일 22:00 KST에 호출). 아카이브는 로컬
+(data/logs_archive/)에 항상 남기고, LOG_S3_UPLOAD=1이면 같은 파일을 S3
+(logs/archive/logs_<시각>.db)에도 추가로 백업한다 -> S3 설정이 꺼져 있거나
+업로드가 실패해도 로컬 이력은 유실되지 않는다.
 """
 import asyncio
 import json
@@ -62,25 +65,28 @@ def upload_to_s3() -> None:
 
 
 def rotate_and_archive() -> None:
-    """지금까지 쌓인 logs.db를 날짜가 찍힌 이름으로 보관하고, 이후 기록은 새
-    logs.db에 쌓이도록 교체한다. 아카이브 파일은 (LOG_S3_UPLOAD=1인 경우)
-    덮어쓰지 않는 날짜별 키로 S3에도 올려서 베타테스트 기간 동안의 로그 이력을
-    전부 보존한다. main.py가 매일 22:00(KST)에 호출한다."""
+    """지금까지 쌓인 logs.db를 로테이션 시작 시각(마이크로초 단위까지)이 찍힌 이름으로
+    로컬(data/logs_archive/)에 영구 보관하고, 이후 기록은 새 logs.db에 쌓이도록 교체한다.
+    파일명에 항상 마이크로초까지 포함시켜서, 버그나 수동 재시작으로 같은 날 여러 번
+    로테이션이 발생해도 서로 덮어쓰지 않는다.
+
+    LOG_S3_UPLOAD=1이면 같은 아카이브를 (덮어쓰지 않는 시각별 키로) S3에도 추가로
+    백업한다. 로컬 아카이브는 S3 업로드 성공 여부와 무관하게 항상 남겨둔다 -> S3 설정이
+    꺼져 있거나 업로드가 실패해도 로컬 이력은 유실되지 않는다.
+
+    main.py가 매일 22:00(KST)에 호출한다."""
     if not DB_PATH.exists():
         return
 
-    date_str = datetime.now(_KST).strftime("%Y-%m-%d")
+    timestamp = datetime.now(_KST).strftime("%Y-%m-%d_%H%M%S_%f")
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
-    archive_path = ARCHIVE_DIR / f"logs_{date_str}.db"
-    if archive_path.exists():
-        ## 같은 날짜에 이미 로테이션된 적 있음(수동 재시작 등) -> 덮어쓰지 않게 시각까지 붙임
-        archive_path = ARCHIVE_DIR / f"logs_{date_str}_{datetime.now(_KST).strftime('%H%M%S')}.db"
+    archive_path = ARCHIVE_DIR / f"logs_{timestamp}.db"
 
     with _write_lock:
         DB_PATH.rename(archive_path)
         init_db()
 
-    print(f"[conversation_log] logs.db 로테이션 완료 -> {archive_path.name}")
+    print(f"[conversation_log] logs.db 로테이션 완료 -> {archive_path.name} (로컬 보관)")
 
     if os.getenv("LOG_S3_UPLOAD") != "1":
         return
@@ -97,7 +103,7 @@ def rotate_and_archive() -> None:
         s3.upload_file(str(archive_path), bucket, key)
         print(f"[conversation_log] 아카이브를 s3://{bucket}/{key} 에 업로드 완료")
     except Exception as e:
-        print(f"[conversation_log] 아카이브 S3 업로드 실패: {e}")
+        print(f"[conversation_log] 아카이브 S3 업로드 실패, 로컬 아카이브는 유지됨: {e}")
 
 
 def init_db() -> None:
