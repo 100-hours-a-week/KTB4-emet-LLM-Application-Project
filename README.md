@@ -13,7 +13,7 @@
 | --- | --- |
 | Backend | Python 3.14 · FastAPI (SSE 스트리밍) · `uv` (패키지 관리) |
 | LLM 오케스트레이션 | LangChain · LangGraph (`StateGraph`, `MemorySaver` 체크포인터) |
-| LLM Provider | Claude(Anthropic) · Google Gemini · vLLM/OpenAI 호환 엔드포인트 (순차 폴백 체인) |
+| LLM Provider | Claude(Anthropic) · Google Gemini (순차 폴백 체인) |
 | 임베딩 / 벡터 검색 | ChromaDB · `sentence-transformers`(로컬 CPU 임베딩, `BAAI/bge-m3`) |
 | 웹 검색 | Tavily (요리 이름 검색 생성 폴백의 실존 여부 판정용, provider 교체 가능한 구조) |
 | 데이터 수집 파이프라인 | Playwright (스크래핑) · `pypdf` (PDF 파싱) |

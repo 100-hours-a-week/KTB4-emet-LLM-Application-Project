@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from glob import glob
 from pathlib import Path
+from zoneinfo import ZoneInfo
 import asyncio
 import json
 import os
@@ -27,6 +28,11 @@ SESSION_SWEEP_INTERVAL_SECONDS = int(os.getenv("SESSION_SWEEP_INTERVAL_SECONDS",
 ## 베타테스트 기간 동안 대화 로그(data/logs.db)를 주기적으로 S3에 백업하는 주기.
 ## LOG_S3_UPLOAD=1일 때만 동작 (conversation_log.upload_to_s3 참고).
 LOG_S3_UPLOAD_INTERVAL_SECONDS = int(os.getenv("LOG_S3_UPLOAD_INTERVAL_SECONDS", 600))  # 10분
+
+## 베타테스트 기간 동안 logs.db를 매일 이 시각(KST)에 날짜별로 아카이브하고 새 파일로
+## 교체한다 (conversation_log.rotate_and_archive 참고). S3 업로드와 별개로 항상 로컬
+## 로테이션은 수행되고, LOG_S3_UPLOAD=1인 경우에만 아카이브가 추가로 S3에 올라간다.
+LOG_ROTATE_HOUR_KST = int(os.getenv("LOG_ROTATE_HOUR_KST", 22))  # 밤 10시
 
 ## 그래프 진입 노드 (START -> query_analysis 고정 경로)
 ENTRY_NODE = "query_analysis"
@@ -82,6 +88,19 @@ async def _periodic_log_upload():
         await asyncio.to_thread(conversation_log.upload_to_s3)
 
 
+async def _daily_log_rotation():
+    """매일 LOG_ROTATE_HOUR_KST 시각(KST, 기본 22시)에 logs.db를 날짜별로 아카이브하고
+    새 파일로 교체하는 백그라운드 루프."""
+    kst = ZoneInfo("Asia/Seoul")
+    while True:
+        now = datetime.now(kst)
+        next_run = now.replace(hour=LOG_ROTATE_HOUR_KST, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+        await asyncio.sleep((next_run - now).total_seconds())
+        await asyncio.to_thread(conversation_log.rotate_and_archive)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ## 그래프 빌드(=VDB 로드) 전에 S3에서 최신 VDB를 먼저 받아옴
@@ -99,12 +118,14 @@ async def lifespan(app: FastAPI):
     app.state.thread_last_seen = {}
     sweep_task = asyncio.create_task(_sweep_idle_threads(app))
     log_upload_task = asyncio.create_task(_periodic_log_upload())
+    log_rotation_task = asyncio.create_task(_daily_log_rotation())
 
     yield
 
     sweep_task.cancel()
     log_upload_task.cancel()
-    for task in (sweep_task, log_upload_task):
+    log_rotation_task.cancel()
+    for task in (sweep_task, log_upload_task, log_rotation_task):
         try:
             await task
         except asyncio.CancelledError:

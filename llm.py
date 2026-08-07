@@ -12,7 +12,7 @@ load_dotenv()
 NO_FALLBACK = object()
 
 ## 폴백 순서 (provider 미지정 시 이 순서대로 직접 시도)
-FALLBACK_ORDER = ("claude", "google", "vllm")
+FALLBACK_ORDER = ("claude", "google")
 
 ## 요청(턴) 하나 동안 발생한 LLM 호출 기록. main.py의 /query 핸들러가 요청 시작 시
 ## set([])으로 초기화하고, 끝날 때 get()으로 수집해서 대화 로그 DB에 남긴다.
@@ -44,19 +44,6 @@ def get_llm(provider: str | None = None, model: str | None = None):
             max_retries=0,
             timeout=15,
         )
-    elif provider == "vllm":
-        from langchain_openai import ChatOpenAI
-        resolved_model = model or os.getenv("LLM_MODEL_NAME")
-        base_url = os.getenv("LLM_BASE_URL")
-        return ChatOpenAI(
-            model=resolved_model,
-            base_url=base_url,
-            api_key=os.getenv("LLM_API_KEY"),
-            max_tokens=2000,
-            max_retries=0,
-            timeout=15,
-        )
-
     ## 자체학습모델("self" provider) 연동 예정 자리 -> self_model/ 폴더 참고
     resolved_model = model or os.getenv("GOOGLE_MODEL", "gemini-3.5-flash-lite")
     return ChatGoogleGenerativeAI(
@@ -106,7 +93,7 @@ async def _try_providers_async(schema, prompt, providers, model):
 def invoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, model=None):
     """
     구조화 출력 질의-응답 헬퍼 (동기).
-    provider 미지정 시 Claude->Google->vLLM 순으로 직접 순차 시도하며,
+    provider 미지정 시 Claude->Google 순으로 직접 순차 시도하며,
     각 provider의 성공/실패가 개별적으로 터미널에 로그로 남는다.
     fallback을 지정하면 전체 실패 시 그 값을 반환하고, 미지정 시 예외를 전파한다.
     """
@@ -128,7 +115,7 @@ def invoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, mo
 async def ainvoke_structured(schema, prompt, *, fallback=NO_FALLBACK, provider=None, model=None):
     """
     구조화 출력 질의-응답 헬퍼 (비동기).
-    provider 미지정 시 Claude->Google->vLLM 순으로 직접 순차 시도하며,
+    provider 미지정 시 Claude->Google 순으로 직접 순차 시도하며,
     각 provider의 성공/실패가 개별적으로 터미널에 로그로 남는다.
     fallback을 지정하면 전체 실패 시 그 값을 반환하고, 미지정 시 예외를 전파한다.
     """
